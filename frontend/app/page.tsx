@@ -1,142 +1,100 @@
-// app/page.tsx
-'use client';
+"use client";
+import { useState } from "react";
 
-import { useState, useEffect, FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
-import { Cpu, Database, Shield, Info, AlertCircle, Play } from 'react-feather';
+export default function Home() {
+  const [text, setText] = useState("");
+  const [result, setResult] = useState<{ prediction: string; confidence: string } | null>(null);
+  const [loading, setLoading] = useState(false);
 
-interface AnalysisResult {
-  total_sentences: number;
-  ai_count: number;
-  results: Array<{
-    sentence: string;
-    confidence: number;
-    label: 'Human' | 'AI-Generated';
-  }>;
-}
-
-export default function Dashboard() {
-  const [text, setText] = useState<string>('');
-  const [error, setError] = useState<string>('');
-  const [loading, setLoading] = useState<boolean>(false);
-  const router = useRouter();
-
-  // Ambil teks terakhir dari sessionStorage saat komponen dimount
-  useEffect(() => {
-    const savedText = sessionStorage.getItem('lastInputText');
-    if (savedText) {
-      setText(savedText);
+  const handleDetect = async () => {
+    if (!text) {
+      alert("Silakan masukkan teks terlebih dahulu!");
+      return;
     }
-  }, []);
 
-  // Simpan teks ke sessionStorage setiap kali berubah
-  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newText = e.target.value;
-    setText(newText);
-    sessionStorage.setItem('lastInputText', newText);
-  };
-
-  const today = new Date().toLocaleDateString('id-ID', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setError('');
     setLoading(true);
+    setResult(null);
 
     try {
-      const res = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("http://127.0.0.1:8000/predict", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),
       });
 
-      if (!res.ok) {
-        const data: { error?: string } = await res.json();
-        setError(data.error || 'Gagal menganalisis dokumen');
-        setLoading(false);
-        return;
+      if (!response.ok) {
+        throw new Error("Gagal menghubungi server backend");
       }
 
-      const result: AnalysisResult = await res.json();
-      sessionStorage.setItem('analysisResult', JSON.stringify(result));
-
-      // Hapus teks yang sudah dianalisis dari penyimpanan
-      sessionStorage.removeItem('lastInputText');
-
-      router.push('/result');
-    } catch (err) {
-      setError('Terjadi kesalahan jaringan');
+      const data = await response.json();
+      setResult({
+        prediction: data.prediction,
+        confidence: data.confidence,
+      });
+    } catch (error) {
+      console.error("Error:", error);
+      alert("Terjadi kesalahan koneksi ke Backend!");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <>
-      <header className="header-content">
-        <div className="welcome-text">
-          <h1>Selamat Datang di Portal Forensik</h1>
-          <p>Pantau integritas dokumen dengan analisis Stylometry & Machine Learning.</p>
+    <main className="min-h-screen bg-gray-50 py-12 px-4 flex flex-col items-center">
+      <div className="max-w-3xl w-full bg-white shadow-xl rounded-2xl p-8">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">
+            AI Text Detector
+          </h1>
+          <p className="text-gray-500">
+            Deteksi apakah teks ditulis oleh manusia atau AI (Gemma 4) menggunakan Stylometry & TF-IDF
+          </p>
         </div>
-        <div className="date-now">{today}</div>
-      </header>
 
-      <section className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-icon"><Cpu /></div>
-          <div>
-            <p style={{ fontSize: 11, color: '#747d8c' }}>Status Model</p>
-            <h4 style={{ fontSize: 16 }}>LR Active</h4>
-          </div>
+        {/* Input Area */}
+        <div className="space-y-4">
+          <textarea
+            className="w-full h-64 p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-gray-700"
+            placeholder="Paste teks Anda di sini (minimal 2 paragraf untuk hasil lebih akurat)..."
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+          />
+          
+          <button
+            onClick={handleDetect}
+            disabled={loading}
+            className={`w-full py-3 rounded-xl font-semibold text-white transition-all ${
+              loading ? "bg-gray-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700 active:scale-95"
+            }`}
+          >
+            {loading ? "Sedang Menganalisis..." : "Deteksi Sekarang"}
+          </button>
         </div>
-        <div className="stat-card">
-          <div className="stat-icon"><Database /></div>
-          <div>
-            <p style={{ fontSize: 11, color: '#747d8c' }}>Dataset Size</p>
-            <h4 style={{ fontSize: 16 }}>Ready</h4>
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon"><Shield /></div>
-          <div>
-            <p style={{ fontSize: 11, color: '#747d8c' }}>Akurasi Sistem</p>
-            <h4 style={{ fontSize: 16 }}>~94.2%</h4>
-          </div>
-        </div>
-      </section>
 
-      <section className="analyze-box">
-        <h3>Input Dokumen Analisis</h3>
-
-        {error && (
-          <div className="alert-info alert-error">
-            <AlertCircle size={18} /> {error}
+        {/* Result Area */}
+        {result && (
+          <div className={`mt-8 p-6 rounded-xl border-2 text-center transition-all ${
+            result.prediction === "AI" 
+            ? "bg-red-50 border-red-200" 
+            : "bg-green-50 border-green-200"
+          }`}>
+            <p className="text-sm text-gray-500 uppercase font-semibold tracking-wider">Hasil Prediksi</p>
+            <h2 className={`text-4xl font-black mt-2 ${
+              result.prediction === "AI" ? "text-red-600" : "text-green-600"
+            }`}>
+              {result.prediction === "AI" ? "🤖 AI GENERATED" : "👤 HUMAN WRITTEN"}
+            </h2>
+            <p className="text-gray-600 mt-2">
+              Tingkat Keyakinan: <span className="font-bold">{result.confidence}</span>
+            </p>
           </div>
         )}
+      </div>
 
-        <div className="alert-info">
-          <Info size={18} />
-          Sistem akan memecah teks per kalimat untuk mendeteksi anomali gaya penulisan AI.
-        </div>
-
-        <form onSubmit={handleSubmit}>
-          <textarea
-            name="text"
-            placeholder="Tempelkan teks naskah, paper, atau esai di sini..."
-            value={text}
-            onChange={handleTextChange}
-            required
-          />
-          <button type="submit" className="btn-submit" disabled={loading}>
-            {loading ? 'Menganalisis...' : 'Mulai Deteksi'} <Play size={18} />
-          </button>
-        </form>
-      </section>
-    </>
+      <footer className="mt-12 text-gray-400 text-sm">
+        &copy; 2026 - Skripsi Klasifikasi AI - Built with Next.js & FastAPI
+      </footer>
+    </main>
   );
 }

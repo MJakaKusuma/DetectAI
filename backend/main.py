@@ -21,8 +21,8 @@ app.add_middleware(
 )
 
 try:
-    model = joblib.load('logistic_model.pkl')
-    tfidf = joblib.load('tfidf_vectorizer.pkl')
+    model = joblib.load('models/logistic_model.pkl')
+    tfidf = joblib.load('models/tfidf_vectorizer.pkl')
     print("Model loaded successfully!")
 except Exception as e:
     print(f"Error loading model: {e}")
