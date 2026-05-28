@@ -1,6 +1,7 @@
+// app/page.tsx
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { Cpu, Database, Shield, Info, AlertCircle, Play } from 'react-feather';
 
@@ -19,6 +20,21 @@ export default function Dashboard() {
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const router = useRouter();
+
+  // Ambil teks terakhir dari sessionStorage saat komponen dimount
+  useEffect(() => {
+    const savedText = sessionStorage.getItem('lastInputText');
+    if (savedText) {
+      setText(savedText);
+    }
+  }, []);
+
+  // Simpan teks ke sessionStorage setiap kali berubah
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newText = e.target.value;
+    setText(newText);
+    sessionStorage.setItem('lastInputText', newText);
+  };
 
   const today = new Date().toLocaleDateString('id-ID', {
     weekday: 'long',
@@ -48,6 +64,10 @@ export default function Dashboard() {
 
       const result: AnalysisResult = await res.json();
       sessionStorage.setItem('analysisResult', JSON.stringify(result));
+
+      // Hapus teks yang sudah dianalisis dari penyimpanan
+      sessionStorage.removeItem('lastInputText');
+
       router.push('/result');
     } catch (err) {
       setError('Terjadi kesalahan jaringan');
@@ -109,7 +129,7 @@ export default function Dashboard() {
             name="text"
             placeholder="Tempelkan teks naskah, paper, atau esai di sini..."
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={handleTextChange}
             required
           />
           <button type="submit" className="btn-submit" disabled={loading}>
