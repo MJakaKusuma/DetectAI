@@ -65,13 +65,16 @@ class Prediction(Base):
     # Relasi
     user = relationship("User", back_populates="predictions")
     model_version = relationship("ModelVersion", back_populates="predictions")
-    feedback = relationship("Feedback", back_populates="prediction", using=None)
+    feedback = relationship("Feedback", back_populates="prediction")
 
 class Feedback(Base):
     __tablename__ = "feedback"
     
     id = Column(Integer, primary_key=True, index=True)
     prediction_id = Column(Integer, ForeignKey("predictions.id"), nullable=False)
-    correct_label = Column(String(10), nullable=False) # 'AI' atau 'Human'
+    correct_label = Column(String(10), nullable=False)
     comment = Column(Text)
     created_at = Column(TIMESTAMP, default=datetime.datetime.utcnow)
+    
+    # Pastikan baris ini benar:
+    prediction = relationship("Prediction", back_populates="feedback")

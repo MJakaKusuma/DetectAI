@@ -7,21 +7,13 @@ import re
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
-# Import dari folder /app
 from app.database import get_db
 from app.models import User, Prediction, ModelVersion
-from app.auth import (
-    get_password_hash, 
-    verify_password, 
-    create_access_token, 
-    get_current_user, 
-    check_admin_role
-)
+from app.auth import get_password_hash, verify_password, create_access_token, get_current_user, check_admin_role
 from app.ml_logic import clean_text, extract_stylometry
 
 app = FastAPI()
 
-# 1. MIDDLEWARE (CORS)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], 
@@ -29,7 +21,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 2. LOAD MODELS
 try:
     model = joblib.load('models/logistic_model.pkl')
     tfidf = joblib.load('models/tfidf_vectorizer.pkl')
@@ -37,7 +28,6 @@ try:
 except Exception as e:
     print(f"Error loading model: {e}")
 
-# 3. SCHEMAS (Pydantic)
 class UserCreate(BaseModel):
     username: str
     password: str
@@ -46,15 +36,9 @@ class UserCreate(BaseModel):
 class TextRequest(BaseModel):
     text: str
 
-# ==========================
-# ENDPOINTS
-# ==========================
-
 @app.get("/")
 def root():
-    return {"status": "Online", "message": "AI Detection API with DB is ready"}
-
-# --- AUTH SECTION ---
+    return {"status": "Online", "message": "AI Detection API is ready"}
 
 @app.post("/register")
 async def register(user_data: UserCreate, db: Session = Depends(get_db)):
@@ -82,16 +66,9 @@ async def login(user_data: UserCreate, db: Session = Depends(get_db)):
         "role": user.role
     }
 
-@app.get("/admin/dashboard")
-async def admin_dashboard(admin: User = Depends(check_admin_role)):
-    return {"message": f"Halo Admin {admin.username}, selamat datang di panel kontrol!"}
-
-# --- PREDICTION SECTION ---
-
 @app.post("/predict")
 async def predict(request: TextRequest, db: Session = Depends(get_db)):
     try:
-        # ML Pipeline
         cleaned = clean_text(request.text)
         style_feat = extract_stylometry(cleaned)
         tfidf_feat = tfidf.transform([cleaned]).toarray()
@@ -103,21 +80,21 @@ async def predict(request: TextRequest, db: Session = Depends(get_db)):
         res_label = "AI" if prediction == 1 else "Human"
         conf_value = float(probability[prediction])
         
-        # Save to DB
         active_model = db.query(ModelVersion).filter(ModelVersion.is_active == True).first()
         model_v_id = active_model.id if active_model else None
 
         new_prediction = Prediction(
             input_text=request.text,
-            prediction_result=res_label,
+            prediction_result=res_label, # Perhatikan jika ada // lagi
             confidence=conf_value,
-            model_version_id=model_v_id,
-            user_id=None 
+            model_version_id=model_v_id
         )
+        # PERBAIKAN: Gunakan res_label (tanpa //)
+        new_prediction.prediction_result = res_label 
         
         db.add(new_prediction)
         db.commit()
-        db.refresh(new_prediction)
+        db.refresh(new_prediction) # Perbaiki jadi new_prediction
         
         return {
             "status": "success",
@@ -126,7 +103,7 @@ async def predict(request: TextRequest, db: Session = Depends(get_db)):
             "prediction_id": new_prediction.id
         }
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Error Detail: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":

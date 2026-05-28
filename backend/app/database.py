@@ -8,7 +8,7 @@ import datetime
 # ==============================================================================
 # Format: mysql+pymysql://user:password@host/db_name
 # GANTI 'root' dan 'password_anda' sesuai dengan settingan MySQL Anda
-DATABASE_URL = "mysql+pymysql://root:password_anda@localhost/ai_detection_db"
+DATABASE_URL = "mysql+pymysql://root@localhost/ai_detection_db"
 
 # Create Engine: Mesin utama yang menghubungkan Python ke MySQL
 engine = create_engine(

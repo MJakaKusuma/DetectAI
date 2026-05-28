@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
-from passlib.context import CryptContext
+import bcrypt # Gunakan bcrypt secara langsung, bukan lewat passlib
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
@@ -12,46 +12,42 @@ from .models import User
 # ==========================
 # KONFIGURASI KEAMANAN
 # ==========================
-# SECRET_KEY: Gunakan string acak yang panjang. Jangan sebarkan key ini!
 SECRET_KEY = "KUNCI_RAHASIA_SANGAT_RAHASIA_SAYA_123" 
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 # Token berlaku selama 24 jam
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 
 
-# PwdContext: Mengatur cara password di-hash menggunakan bcrypt
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-# OAuth2: Mendefinisikan di mana token harus dikirim (header Authorization: Bearer <token>)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 # ==========================
-# FUNGSI UTILITY PASSWORD
+# FUNGSI UTILITY PASSWORD (Direct Bcrypt)
 # ==========================
 
 def get_password_hash(password: str) -> str:
-    """Mengubah password teks biasa menjadi hash terenkripsi"""
-    return pwd_context.hash(password)
+    """Mengubah password menjadi hash menggunakan bcrypt secara langsung"""
+    # Password harus diubah menjadi bytes sebelum di-hash
+    pwd_bytes = password.encode('utf-8')
+    salt = bcrypt.gensalt()
+    hashed_password = bcrypt.hashpw(pwd_bytes, salt)
+    # Simpan hasil hash sebagai string agar bisa masuk ke MySQL VARCHAR
+    return hashed_password.decode('utf-8')
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Mencocokkan password input dengan hash di database"""
-    return pwd_context.verify(plain_password, hashed_password)
+    """Mencocokkan password dengan hash yang ada di database"""
+    pwd_bytes = plain_password.encode('utf-8')
+    hashed_bytes = hashed_password.encode('utf-8')
+    return bcrypt.checkpw(pwd_bytes, hashed_bytes)
 
 # ==========================
-# FUNGSI JWT TOKEN
+# FUNGSI JWT TOKEN (Tetap Sama)
 # ==========================
 
 def create_access_token(data: dict):
-    """Membuat token JWT yang berisi identitas user"""
     to_data = data.copy()
     expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_data.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_data, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+    return jwt.encode(to_data, SECRET_KEY, algorithm=ALGORITHM)
 
 async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    """
-    Fungsi Middleware: Mengecek apakah token valid dan mengambil data user dari DB.
-    Jika token salah/expired, akan mengembalikan error 401 Unauthorized.
-    """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Kredensial tidak valid atau token telah kadaluwarsa",
@@ -68,13 +64,9 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
     user = db.query(User).filter(User.username == username).first()
     if user is None:
         raise credentials_exception
-        
     return user
 
 def check_admin_role(current_user: User = Depends(get_current_user)):
-    """
-    Proteksi khusus Admin. Jika user bukan admin, akses ditolak (403 Forbidden).
-    """
     if current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
