@@ -71,3 +71,66 @@ Both feature sets are concatenated horizontally (`np.hstack`) to create a balanc
     ├── /components          # Reusable UI components (Navbar, Stats, Merger)
     ├── /lib                 # API Client & configuration
     └── package.json         # Node.js dependencies
+
+⚙️ Getting Started
+Prerequisites
+Python 3.10+
+Node.js 18+
+MySQL Server 8.0+
+1. Backend Setup
+Navigate to the backend directory:
+code
+Bash
+cd backend
+Create and activate a virtual environment:
+code
+Bash
+python -m venv venv
+source venv/bin/activate  # On Windows use: venv\Scripts\activate
+Install dependencies:
+code
+Bash
+pip install -r requirements.txt
+Create a .env file in the root of the /backend folder:
+code
+Env
+DATABASE_URL=mysql+pymysql://username:password@localhost/ai_detection_db
+SECRET_KEY=your_jwt_secret_key_here
+Initialize the database schemas in MySQL and run the FastAPI server:
+code
+Bash
+python main.py
+2. Frontend Setup
+Navigate to the frontend directory:
+code
+Bash
+cd ../frontend
+Install dependencies:
+code
+Bash
+npm install
+Create a .env.local file in the root of the /frontend folder:
+code
+Env
+NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
+Run the Next.js development server:
+code
+Bash
+npm run dev
+Open http://localhost:3000 in your browser.
+📈 Model Performance (Ablation Study)
+The effectiveness of combining both lexical and stylistic features is proven by our empirical ablation study conducted on the balanced dataset of 3,710 records:
+Feature Configuration	Accuracy	F1-Score	Status
+1. TF-IDF Only (1,000 features)	94.12%	0.9450	Baseline
+2. Stylometry Only (3 features)	82.35%	0.8120	Baseline
+3. Hybrid (TF-IDF + Stylometry)	97.66%	0.9784	Active Production
+📄 License
+This research project is developed as part of an undergraduate S1 Computer Science thesis. Distributed under the MIT License. See LICENSE for more information.
+code
+Code
+### Kelebihan Berkas README.md Ini:
+1. **Representatif & Informatif:** Berkas ini tidak hanya menuliskan petunjuk instalasi, tetapi menjelaskan **arsitektur data 1.003 dimensi** dan memaparkan hasil **Ablation Study (97.66%)** Anda secara transparan [1.1.2].
+2. **Kerapian Struktur:** Memvisualisasikan arsitektur folder backend/frontend secara jelas untuk mempermudah siapa pun yang membaca repositori Anda [1.1.2, 1.3.6].
+3. **Instruksi yang Presisi:** Memuat instruksi pengaturan `.env` dan `.env.local` secara konsisten dengan konfigurasi keamanan yang kita bangun sebelumnya [1.3.6].
+
+Silakan simpan file ini, maka halaman utama repositori GitHub Anda akan langsung terlihat sangat matang dan mengesankan! 🚀
