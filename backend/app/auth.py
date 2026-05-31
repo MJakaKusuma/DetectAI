@@ -1,3 +1,5 @@
+import os
+from dotenv import load_dotenv
 from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
@@ -9,12 +11,13 @@ from sqlalchemy.orm import Session
 from .database import get_db
 from .models import User
 
+load_dotenv()
 # ==========================
 # KONFIGURASI KEAMANAN
 # ==========================
-SECRET_KEY = "KUNCI_RAHASIA_SANGAT_RAHASIA_SAYA_123" 
+SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 

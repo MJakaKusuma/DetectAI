@@ -1,14 +1,19 @@
+import os
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import datetime
+
+load_dotenv()
 
 # ==============================================================================
 # KONFIGURASI DATABASE
 # ==============================================================================
 # Format: mysql+pymysql://user:password@host/db_name
 # GANTI 'root' dan 'password_anda' sesuai dengan settingan MySQL Anda
-DATABASE_URL = "mysql+pymysql://root@localhost/ai_detection_db"
+DATABASE_URL = os.getenv("DATABASE_URL")
+engine = create_engine(DATABASE_URL, pool_recycle=3600, pool_pre_ping=True)
 
 # Create Engine: Mesin utama yang menghubungkan Python ke MySQL
 engine = create_engine(

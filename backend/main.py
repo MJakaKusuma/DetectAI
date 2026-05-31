@@ -5,10 +5,18 @@ import numpy as np
 import pandas as pd
 import re
 import datetime
+import os
+import shutil
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import Optional
+
+# IMPORT SCikit-Learn (PENTING UNTUK TRAINING ONLINE)
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, f1_score
 
 # Import dari folder /app
 from app.database import get_db
@@ -339,6 +347,7 @@ async def upload_dataset(
     }
 
 # 4. API UNTUK MEMICU PROSES TRAINING ULANG (RETRAINING SYSTEM)
+# 4. API UNTUK MEMICU PROSES TRAINING ULANG (RETRAINING SYSTEM DENGAN ABLATION STUDY)
 @app.post("/admin/retrain/{dataset_id}")
 async def retrain_model(
     dataset_id: int,
@@ -346,7 +355,7 @@ async def retrain_model(
     db: Session = Depends(get_db)
 ):
     # Cari informasi dataset di database
-    from app.models import Dataset # Import lokal
+    from app.models import Dataset
     dataset_record = db.query(Dataset).filter(Dataset.id == dataset_id).first()
     if not dataset_record:
         raise HTTPException(status_code=404, detail="Dataset tidak ditemukan di database.")
@@ -362,62 +371,90 @@ async def retrain_model(
         # A. Preprocessing
         df_new['clean_text'] = df_new['text'].apply(clean_text)
 
-        # B. Ekstraksi Fitur Stilometri
+        # B. Ekstraksi Fitur Stilometri (Feature Engineering)
         print("Mengekstrak fitur stilometri...")
         style_features_list = []
         for t in df_new['clean_text']:
             style_features_list.append(extract_stylometry(t).flatten())
-        style_features = np.array(style_features_list)
+        X_stilo_only = np.array(style_features_list)
 
         # C. Ekstraksi Fitur TF-IDF
         print("Membangun model TF-IDF baru...")
         new_tfidf = TfidfVectorizer(max_features=1000)
-        tfidf_matrix = new_tfidf.fit_transform(df_new['clean_text']).toarray()
+        X_tfidf_only = new_tfidf.fit_transform(df_new['clean_text']).toarray()
 
-        # Gabungkan Fitur
-        X_new = np.hstack((tfidf_matrix, style_features))
+        # Gabungkan Fitur untuk Skenario Hibrida
+        X_hybrid = np.hstack((X_tfidf_only, X_stilo_only))
         y_new = df_new['label']
 
-        # Split Data (80% Train, 20% Test)
-        X_train, X_test, y_train, y_test = train_test_split(X_new, y_new, test_size=0.2, random_state=42)
+        # Split Data untuk Ketiga Skenario (Adu Adil dengan random_state=42)
+        X_train_t, X_test_t, y_train, y_test = train_test_split(X_tfidf_only, y_new, test_size=0.2, random_state=42)
+        X_train_s, X_test_s, _, _ = train_test_split(X_stilo_only, y_new, test_size=0.2, random_state=42)
+        X_train_h, X_test_h, _, _ = train_test_split(X_hybrid, y_new, test_size=0.2, random_state=42)
 
-        # D. Training Model Logistic Regression Baru
-        print("Melatih model baru...")
-        new_model = LogisticRegression(max_iter=1000)
-        new_model.fit(X_train, y_train)
-
-        # E. Evaluasi Performa
+        # -----------------------------------------------------------------
+        # PROSES EVALUASI KOMPARATIF (ABLATION STUDY ONLINE)
+        # -----------------------------------------------------------------
         from sklearn.metrics import accuracy_score, f1_score
-        y_pred = new_model.predict(X_test)
-        acc = float(accuracy_score(y_test, y_pred))
-        f1 = float(f1_score(y_test, y_pred))
+        print("Mengevaluasi skenario komparatif fitur...")
+
+        # Skenario 1: TF-IDF Saja
+        model_tfidf = LogisticRegression(max_iter=1000)
+        model_tfidf.fit(X_train_t, y_train)
+        pred_tfidf = model_tfidf.predict(X_test_t)
+        acc_tfidf = accuracy_score(y_test, pred_tfidf)
+        f1_tfidf = f1_score(y_test, pred_tfidf)
+
+        # Skenario 2: Stilometri Saja
+        model_stilo = LogisticRegression(max_iter=1000)
+        model_stilo.fit(X_train_s, y_train)
+        pred_stilo = model_stilo.predict(X_test_s)
+        acc_stilo = accuracy_score(y_test, pred_stilo)
+        f1_stilo = f1_score(y_test, pred_stilo)
+
+        # Skenario 3: Hibrida (TF-IDF + Stilometri)
+        model_hybrid = LogisticRegression(max_iter=1000)
+        model_hybrid.fit(X_train_h, y_train)
+        pred_hybrid = model_hybrid.predict(X_test_h)
+        acc_hybrid = accuracy_score(y_test, pred_hybrid)
+        f1_hybrid = f1_score(y_test, pred_hybrid)
+
+        # Cetak Tabel Perbandingan Langsung di Terminal Backend
+        print("\n" + "="*60)
+        print("   ABLATION STUDY DI LEVEL PRODUKSI (WEB RETRAINING)")
+        print("="*60)
+        print(f"{'Skenario Pengujian':<30} | {'Accuracy':<10} | {'F1-Score':<10}")
+        print("-"*60)
+        print(f"{'1. TF-IDF Saja (1000 Fitur)':<30} | {acc_tfidf:<10.4f} | {f1_tfidf:<10.4f}")
+        print(f"{'2. Stilometri Saja (3 Fitur)':<30} | {acc_stilo:<10.4f} | {f1_stilo:<10.4f}")
+        print(f"{'3. Hibrida (TF-IDF + Stilo)':<30} | {acc_hybrid:<10.4f} | {f1_hybrid:<10.4f}")
+        print("="*60 + "\n")
+        # -----------------------------------------------------------------
 
         # F. Menyimpan Model Fisik Baru ke Folder Server
-        # Gunakan nama versi berbasis waktu unik untuk versioning
         version_code = datetime.datetime.utcnow().strftime("%Y%m%d%H%M")
         model_path = f"models/logistic_model_{version_code}.pkl"
         tfidf_path = f"models/tfidf_vectorizer_{version_code}.pkl"
         
-        joblib.dump(new_model, model_path)
+        joblib.dump(model_hybrid, model_path)
         joblib.dump(new_tfidf, tfidf_path)
 
         # G. PERBARUI FILE MODEL UTAMA YANG SEDANG AKTIF
-        # Ini agar API /predict langsung menggunakan model baru tanpa harus restart server
         shutil.copy(model_path, 'models/logistic_model.pkl')
         shutil.copy(tfidf_path, 'models/tfidf_vectorizer.pkl')
         
-        # Muat ulang model ke memori backend
+        # Muat ulang model hibrida ke memori aktif backend
         global model, tfidf
         model = joblib.load('models/logistic_model.pkl')
         tfidf = joblib.load('models/tfidf_vectorizer.pkl')
 
-        # H. UPDATE DATABASE (Nonaktifkan semua model lama, aktifkan model baru)
+        # H. UPDATE DATABASE (Nonaktifkan model lama, aktifkan model hibrida baru)
         db.query(ModelVersion).update({ModelVersion.is_active: False})
         
         new_version_record = ModelVersion(
             version_name=f"v-{version_code}",
-            accuracy=acc,
-            f1_score=f1,
+            accuracy=acc_hybrid, # Menggunakan akurasi model Hibrida
+            f1_score=f1_hybrid,
             dataset_id=dataset_id,
             model_path=model_path,
             is_active=True
@@ -427,10 +464,10 @@ async def retrain_model(
 
         return {
             "status": "success",
-            "message": "Model berhasil dilatih ulang dan diperbarui ke sistem produksi.",
+            "message": "Model hibrida berhasil dilatih ulang dan diperbarui ke sistem.",
             "version": f"v-{version_code}",
-            "accuracy": f"{acc * 100:.2f}%",
-            "f1_score": f"{f1 * 100:.2f}%"
+            "accuracy": f"{acc_hybrid * 100:.2f}%",
+            "f1_score": f"{f1_hybrid * 100:.2f}%"
         }
 
     except Exception as e:

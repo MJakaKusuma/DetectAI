@@ -1,11 +1,13 @@
 // Definisi tipe untuk Header agar tidak menggunakan 'any'
 type ApiHeaders = Record<string, string>;
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+
 export const apiRequest = async <T>(
   endpoint: string, 
   method: string = "GET", 
-  body: any = null,      // Hapus tanda '?' karena sudah ada initializer (= null)
-  token: string | null = null // Hapus tanda '?' karena sudah ada initializer
+  body: any = null,  
+  token: string | null = null
 ): Promise<T> => {
   
   // Gunakan ApiHeaders (Record<string, string>) bukan 'any'
@@ -24,7 +26,7 @@ export const apiRequest = async <T>(
   };
 
   try {
-    const response = await fetch(`http://127.0.0.1:8000${endpoint}`, config);
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
     
     if (!response.ok) {
       const errorData = await response.json();
