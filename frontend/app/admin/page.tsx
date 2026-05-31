@@ -226,8 +226,7 @@ export default function AdminPage() {
   const paginatedFeedbacks = paginate(feedbacks, feedbackPage, ROWS_PER_PAGE);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 space-y-10">
-      
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 space-y-10 min-h-[75vh]">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-black text-slate-800">Panel Kontrol Administrator</h1>

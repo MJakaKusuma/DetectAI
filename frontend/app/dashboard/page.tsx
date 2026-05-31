@@ -163,7 +163,7 @@ export default function DashboardPage() {
   const totalHistoryPages = Math.ceil(history.length / ROWS_PER_PAGE);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12 min-h-[75vh]">
       
       {/* ============================================================================== */}
       {/* A. LAYOUT KHUSUS PRINT PDF (Hanya muncul saat dicetak / print:block) */}
