@@ -6,7 +6,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 export const apiRequest = async <T>(
   endpoint: string, 
   method: string = "GET", 
-  body: any = null,  
+  body: unknown = null,  
   token: string | null = null
 ): Promise<T> => {
   

@@ -1,10 +1,11 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { apiRequest } from "../lib/api";
 import { StatCard } from "../components/dashboardwidgets";
 import { useToast } from "../components/toast";
 import { useRouter } from "next/navigation";
 import { AlertCallout } from "../components/dashboardwidgets";
+import DatasetMerger from "../components/datasetmerger";
 
 // INTERFACE DATA ADMIN
 interface Distribution {
@@ -70,39 +71,21 @@ export default function AdminPage() {
   const [training, setTraining] = useState(false);
   const [selectedDatasetId, setSelectedDatasetId] = useState<string>("");
 
-  // ==========================================
+  const [uploadMethod, setUploadMethod] = useState<"single" | "merge">("single");
+
   // CONFIG & STATE PAGINASI (5 Baris per Halaman)
-  // ==========================================
   const ROWS_PER_PAGE = 5;
   const [datasetPage, setDatasetPage] = useState(1);
   const [modelPage, setModelPage] = useState(1);
   const [feedbackPage, setFeedbackPage] = useState(1);
 
-  // Reset nomor halaman ketika tab admin berpindah
-  useEffect(() => {
-    setDatasetPage(1);
-    setModelPage(1);
-    setFeedbackPage(1);
-  }, [activeTab]);
-
   const { showToast } = useToast();
   const router = useRouter();
 
-  useEffect(() => {
-    const role = localStorage.getItem("role");
-    if (role !== "admin") {
-      showToast("Akses ditolak! Menu khusus Administrator.", "error");
-      router.push("/dashboard");
-    } else {
-      fetchAdminData();
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchAdminData();
-  }, [activeTab]);
-
-  const fetchAdminData = async () => {
+  // ==============================================================================
+  // PEMBUNGKUS CALLBACK: FETCH DATA (Memperbaiki Hoisting & Dependencies)
+  // ==============================================================================
+  const fetchAdminData = useCallback(async () => {
     const token = localStorage.getItem("token");
     if (!token) return;
     try {
@@ -122,7 +105,32 @@ export default function AdminPage() {
     } catch (err: unknown) {
       showToast((err as Error).message || "Gagal memuat data.", "error");
     }
+  }, [activeTab, showToast]);
+
+  // ==============================================================================
+  // EVENT HANDLER: TRANSISI TAB (Solusi Menghilangkan set-state-in-effect)
+  // ==============================================================================
+  const handleTabChange = (tab: "dashboard" | "training" | "models" | "feedback") => {
+    setActiveTab(tab);
+    setDatasetPage(1);
+    setModelPage(1);
+    setFeedbackPage(1);
   };
+
+  useEffect(() => {
+    const role = localStorage.getItem("role");
+    if (role !== "admin") {
+      showToast("Akses ditolak! Menu khusus Administrator.", "error");
+      router.push("/dashboard");
+      return;
+    }
+
+    // Menggunakan fungsi asinkron internal untuk memecah render loop kaskade
+    const loadData = async () => {
+      await fetchAdminData();
+    };
+    loadData();
+  }, [fetchAdminData, router, showToast]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -130,7 +138,7 @@ export default function AdminPage() {
     }
   };
 
-  const handleUpload = async (e: React.FormEvent) => {
+  const handleUploadSingle = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) return;
 
@@ -148,8 +156,9 @@ export default function AdminPage() {
 
       if (!response.ok) throw new Error("Gagal mengunggah file.");
 
-      await response.json();
-      showToast(`Dataset berhasil disimpan!`, "success");
+      const data: UploadResponse = await response.json();
+      setSelectedDatasetId(data.dataset_id.toString());
+      showToast(`Dataset master berhasil diunggah! Terbaca ${data.row_count} data.`, "success");
       setFile(null);
       
       const datasetsData = await apiRequest<DatasetItem[]>("/admin/datasets", "GET", null, token);
@@ -174,7 +183,7 @@ export default function AdminPage() {
       await apiRequest(`/admin/retrain/${selectedDatasetId}`, "POST", null, token);
       showToast("retraining selesai!", "success");
       setSelectedDatasetId("");
-      setActiveTab("models"); 
+      handleTabChange("models"); 
     } catch (err: unknown) {
       showToast((err as Error).message || "Gagal melatih ulang model.", "error");
     } finally {
@@ -193,7 +202,6 @@ export default function AdminPage() {
     }
   };
 
-  // KALKULASI PARAMETER GRAFIK LOKAL (UNTUK SVG DONUT & BAR CHART)
   const totalPredictions = stats ? stats.distribution.ai_count + stats.distribution.human_count : 0;
   const aiPercentage = stats && totalPredictions > 0 ? (stats.distribution.ai_count / totalPredictions) * 100 : 0;
   
@@ -202,9 +210,6 @@ export default function AdminPage() {
 
   const maxBarValue = stats ? Math.max(...stats.daily_activity.map(d => d.count), 5) : 5;
 
-  // ==========================================
-  // KALKULASI REUSABLE PAGINASI DATA
-  // ==========================================
   const paginate = <T,>(items: T[], currentPage: number, rowsPerPage: number) => {
     const indexOfLastRow = currentPage * rowsPerPage;
     const indexOfFirstRow = indexOfLastRow - rowsPerPage;
@@ -216,11 +221,8 @@ export default function AdminPage() {
     };
   };
 
-  // 1. Data Dataset Terpaginasi
   const paginatedDatasets = paginate(datasets, datasetPage, ROWS_PER_PAGE);
-  // 2. Data Model Terpaginasi
   const paginatedModels = paginate(models, modelPage, ROWS_PER_PAGE);
-  // 3. Data Feedback Terpaginasi
   const paginatedFeedbacks = paginate(feedbacks, feedbackPage, ROWS_PER_PAGE);
 
   return (
@@ -234,10 +236,10 @@ export default function AdminPage() {
 
       {/* Tab Navigation */}
       <div className="flex border-b border-slate-200 gap-6 overflow-x-auto whitespace-nowrap pb-1">
-        <button onClick={() => setActiveTab("dashboard")} className={`pb-3 text-sm font-bold border-b-2 transition-all ${activeTab === "dashboard" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-400"}`}>📊 Ringkasan Dashboard</button>
-        <button onClick={() => setActiveTab("training")} className={`pb-3 text-sm font-bold border-b-2 transition-all ${activeTab === "training" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-400"}`}>📁 Dataset & Training</button>
-        <button onClick={() => setActiveTab("models")} className={`pb-3 text-sm font-bold border-b-2 transition-all ${activeTab === "models" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-400"}`}>🎯 Model Registry</button>
-        <button onClick={() => setActiveTab("feedback")} className={`pb-3 text-sm font-bold border-b-2 transition-all ${activeTab === "feedback" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-400"}`}>⚠️ Audit Umpan Balik</button>
+        <button onClick={() => handleTabChange("dashboard")} className={`pb-3 text-sm font-bold border-b-2 transition-all ${activeTab === "dashboard" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-400"}`}>📊 Ringkasan Dashboard</button>
+        <button onClick={() => handleTabChange("training")} className={`pb-3 text-sm font-bold border-b-2 transition-all ${activeTab === "training" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-400"}`}>📁 Dataset & Training</button>
+        <button onClick={() => handleTabChange("models")} className={`pb-3 text-sm font-bold border-b-2 transition-all ${activeTab === "models" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-400"}`}>🎯 Model Registry</button>
+        <button onClick={() => handleTabChange("feedback")} className={`pb-3 text-sm font-bold border-b-2 transition-all ${activeTab === "feedback" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-400"}`}>⚠️ Audit Umpan Balik</button>
       </div>
 
       {/* ========================================== */}
@@ -246,6 +248,7 @@ export default function AdminPage() {
       {activeTab === "dashboard" && stats && (
         <div className="space-y-8 animate-fade-in">
           
+          {/* Grid Statistik Dasar */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             <StatCard title="Total Pengguna" value={`${stats.total_users} Akun`} icon="👤" />
             <StatCard title="Total Prediksi" value={`${stats.total_predictions} Kali`} icon="⏳" />
@@ -253,13 +256,17 @@ export default function AdminPage() {
             <StatCard title="Umpan Balik User" value={`${stats.total_feedback} Koreksi`} icon="⚠️" />
           </div>
 
+          {/* PANEL GRAFIK INTEGRASI */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            {/* GRAFIK 1: Aktivitas Deteksi Harian */}
             <div className="lg:col-span-2 bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
               <div>
                 <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider mb-2">Tren Aktivitas Deteksi Harian</h3>
                 <p className="text-[10px] text-slate-400 mb-6">Visualisasi total panggilan API /predict dalam 7 hari terakhir.</p>
               </div>
 
+              {/* Rangka Batang */}
               <div className="flex justify-between items-end h-52 pt-6 border-b border-slate-100">
                 {stats.daily_activity.map((item, idx) => (
                   <div key={idx} className="flex flex-col items-center justify-end h-full flex-1 group">
@@ -268,7 +275,7 @@ export default function AdminPage() {
                     </span>
                     <div className="w-8 sm:w-12 h-32 flex items-end">
                       <div 
-                        className="w-full bg-gradient-to-t from-indigo-500 to-blue-500 rounded-t-lg group-hover:from-indigo-600 group-hover:to-blue-600 transition-all duration-500"
+                        className="w-full bg-linear-to-t from-indigo-500 to-blue-500 rounded-t-lg group-hover:from-indigo-600 group-hover:to-blue-600 transition-all duration-500"
                         style={{ height: `${(item.count / maxBarValue) * 100}%` }}
                       />
                     </div>
@@ -278,18 +285,20 @@ export default function AdminPage() {
               </div>
             </div>
 
+            {/* GRAFIK 2: Distribusi Klasifikasi */}
             <div className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
               <div>
                 <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider mb-2">Proporsi Hasil Pengujian</h3>
                 <p className="text-[10px] text-slate-400 mb-6 font-medium">Perbandingan persentase teks AI vs teks Manusia.</p>
               </div>
 
+              {/* Render SVG Donut */}
               <div className="relative flex justify-center items-center py-6">
                 {totalPredictions === 0 ? (
                   <div className="text-xs text-slate-400 text-center py-12">Belum ada data klasifikasi masuk.</div>
                 ) : (
                   <>
-                    <svg width="150" height="150" className="rotate-[-90deg]">
+                    <svg width="150" height="150" className="-rotate-90">
                       <circle cx="75" cy="75" r="40" fill="transparent" stroke="#10b981" strokeWidth="14" />
                       <circle 
                         cx="75" 
@@ -311,6 +320,7 @@ export default function AdminPage() {
                 )}
               </div>
 
+              {/* Legend Indikator Warna */}
               <div className="flex justify-center gap-6 pt-4 border-t border-slate-100 text-xs text-slate-600 font-semibold">
                 <div className="flex items-center gap-1.5">
                   <span className="w-2.5 h-2.5 rounded bg-[#10b981]" />
@@ -322,6 +332,7 @@ export default function AdminPage() {
                 </div>
               </div>
             </div>
+
           </div>
 
           <AlertCallout title="Pemberitahuan Sistem" message="Sebagai Administrator, Anda berhak melatih ulang model menggunakan dataset baru. Pastikan dataset telah terstruktur rapi untuk menjaga stabilitas parameter statistik model." />
@@ -329,17 +340,66 @@ export default function AdminPage() {
       )}
 
       {/* ========================================== */}
-      {/* 2. TAB DATASET & TRAINING (DENGAN PAGINASI) */}
+      {/* 2. TAB DATASET & TRAINING */}
       {/* ========================================== */}
       {activeTab === "training" && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fade-in">
           <div className="lg:col-span-1 space-y-6">
+            
+            {/* PANEL PEMILIHAN METODE UNGGAH */}
             <div className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm space-y-4">
-              <h3 className="text-base font-bold text-slate-800">Unggah Dataset</h3>
-              <input type="file" accept=".csv" onChange={handleFileChange} className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
-              <button onClick={handleUpload} disabled={uploading || !file} className="w-full py-3 bg-slate-900 text-white rounded-xl text-xs font-bold uppercase disabled:bg-slate-100 disabled:text-slate-400 transition-all">{uploading ? "Mengunggah..." : "Simpan Berkas"}</button>
+              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Metode Unggah</h3>
+              <div className="flex gap-2 text-xs font-bold">
+                <button 
+                  type="button"
+                  onClick={() => setUploadMethod("single")}
+                  className={`flex-1 py-2 rounded-lg border transition-all ${
+                    uploadMethod === "single" 
+                      ? "bg-slate-900 border-slate-900 text-white" 
+                      : "bg-white border-slate-200 text-slate-400"
+                  }`}
+                >
+                  📄 Single CSV
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setUploadMethod("merge")}
+                  className={`flex-1 py-2 rounded-lg border transition-all ${
+                    uploadMethod === "merge" 
+                      ? "bg-slate-900 border-slate-900 text-white" 
+                      : "bg-white border-slate-200 text-slate-400"
+                  }`}
+                >
+                  🔀 Merge Tool
+                </button>
+              </div>
             </div>
 
+            {/* AREA DUMP UNGGAH */}
+            {uploadMethod === "single" ? (
+              <div className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm space-y-4 animate-fade-in">
+                <h3 className="text-base font-bold text-slate-800">Unggah Single CSV</h3>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Unggah file satu kesatuan berformat `.csv` yang sudah memiliki kolom &quot;text&quot; dan &quot;label&quot;.
+                </p>
+                <form onSubmit={handleUploadSingle} className="space-y-4 pt-2">
+                  <input type="file" accept=".csv" onChange={handleFileChange} className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+                  <button type="submit" disabled={uploading || !file} className="w-full py-3 bg-slate-900 text-white rounded-xl text-xs font-bold uppercase disabled:bg-slate-100 disabled:text-slate-400 transition-all">{uploading ? "Mengunggah..." : "Simpan Berkas"}</button>
+                </form>
+              </div>
+            ) : (
+              <DatasetMerger 
+                onUploadSuccess={(datasetId) => {
+                  setSelectedDatasetId(datasetId.toString());
+                  const token = localStorage.getItem("token");
+                  if (token) {
+                    apiRequest<DatasetItem[]>("/admin/datasets", "GET", null, token).then(data => setDatasets(data));
+                  }
+                }} 
+              />
+            )}
+
+            {/* PANEL RETRAINING */}
             <div className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm space-y-4">
               <h3 className="text-base font-bold text-slate-800">Latih Model</h3>
               <select value={selectedDatasetId} onChange={(e) => setSelectedDatasetId(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm text-slate-700 bg-white outline-none">
@@ -354,7 +414,8 @@ export default function AdminPage() {
             </div>
           </div>
 
-          <div className="lg:col-span-2 bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
+          {/* Sisi Kanan: Daftar Dataset */}
+          <div className="lg:col-span-2 bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm flex flex-col justify-between min-h-112.5">
             <div>
               <h3 className="text-base font-bold text-slate-800 mb-6">Berkas Dataset di Server</h3>
               {datasets.length === 0 ? (
@@ -373,7 +434,7 @@ export default function AdminPage() {
                       {paginatedDatasets.currentRows.map((d) => (
                         <tr key={d.id} className="hover:bg-slate-50/50">
                           <td className="py-4 text-xs font-medium text-slate-400">{d.upload_date}</td>
-                          <td className="py-4 font-bold text-slate-700">{d.filename}</td>
+                          <td className="py-4 font-bold text-slate-700 max-w-xs truncate">{d.filename}</td>
                           <td className="py-4 text-right font-semibold text-slate-800">{d.row_count} baris</td>
                         </tr>
                       ))}
@@ -400,7 +461,7 @@ export default function AdminPage() {
                   <button 
                     onClick={() => setDatasetPage(prev => Math.min(prev + 1, paginatedDatasets.totalPages))} 
                     disabled={datasetPage === paginatedDatasets.totalPages}
-                    className="px-3 py-1.5 bg-slate-900 text-white rounded-lg font-bold hover:bg-slate-800 transition-all disabled:opacity-50"
+                    className="px-3 py-1.5 bg-slate-950 text-white rounded-lg font-bold hover:bg-slate-800 transition-all disabled:opacity-50"
                   >
                     Next
                   </button>
@@ -412,14 +473,14 @@ export default function AdminPage() {
       )}
 
       {/* ========================================== */}
-      {/* 3. TAB MODEL REGISTRY (DENGAN PAGINASI) */}
+      {/* 3. TAB MODEL REGISTRY */}
       {/* ========================================== */}
       {activeTab === "models" && (
-        <div className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm animate-fade-in flex flex-col justify-between min-h-[400px]">
+        <div className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm animate-fade-in flex flex-col justify-between min-h-100">
           <div>
             <h3 className="text-base font-bold text-slate-800 mb-6">Manajemen Versi Model (Rollback System)</h3>
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm text-slate-600 min-w-[650px]">
+              <table className="w-full text-left text-sm text-slate-600 min-w-162.5">
                 <thead>
                   <tr className="border-b border-slate-100 text-slate-400 text-xs font-bold uppercase tracking-wider pb-2">
                     <th className="pb-3">Tanggal Latih</th>
@@ -467,7 +528,7 @@ export default function AdminPage() {
                 <button 
                   onClick={() => setModelPage(prev => Math.min(prev + 1, paginatedModels.totalPages))} 
                   disabled={modelPage === paginatedModels.totalPages}
-                  className="px-3 py-1.5 bg-slate-900 text-white rounded-lg font-bold hover:bg-slate-800 transition-all disabled:opacity-50"
+                  className="px-3 py-1.5 bg-slate-950 text-white rounded-lg font-bold hover:bg-slate-800 transition-all disabled:opacity-50"
                 >
                   Next
                 </button>
@@ -478,17 +539,17 @@ export default function AdminPage() {
       )}
 
       {/* ========================================== */}
-      {/* 4. TAB AUDIT FEEDBACK (DENGAN PAGINASI) */}
+      {/* 4. TAB AUDIT FEEDBACK */}
       {/* ========================================== */}
       {activeTab === "feedback" && (
-        <div className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm animate-fade-in flex flex-col justify-between min-h-[400px]">
+        <div className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm animate-fade-in flex flex-col justify-between min-h-100">
           <div>
             <h3 className="text-base font-bold text-slate-800 mb-6">Ulasan Koreksi Klasifikasi oleh Pengguna</h3>
             {feedbacks.length === 0 ? (
               <div className="text-center py-12 text-slate-400 text-xs">Belum ada umpan balik koreksi yang dikirimkan.</div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm text-slate-600 min-w-[700px]">
+                <table className="w-full text-left text-sm text-slate-600 min-w-175">
                   <thead>
                     <tr className="border-b border-slate-100 text-slate-400 text-xs font-bold uppercase tracking-wider pb-2">
                       <th className="pb-3">Tanggal</th>

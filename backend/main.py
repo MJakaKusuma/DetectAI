@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, status, Request
+from fastapi import FastAPI, HTTPException, Depends, status, Request, UploadFile, File
 from pydantic import BaseModel
 import joblib
 import numpy as np
@@ -12,12 +12,6 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import Optional
 
-# IMPORT SCikit-Learn (PENTING UNTUK TRAINING ONLINE)
-from sklearn.model_selection import train_test_split
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score, f1_score
-
 # Import dari folder /app
 from app.database import get_db
 from app.models import User, Prediction, ModelVersion
@@ -30,9 +24,21 @@ from app.auth import (
 )
 from app.ml_logic import clean_text, extract_stylometry
 
+# IMPORT Scikit-Learn (Penting untuk Retraining)
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, f1_score
+
+# ==============================================================================
+# INISIALISASI DIRECTORY & APP
+# ==============================================================================
+os.makedirs("uploads", exist_ok=True)
+os.makedirs("models", exist_ok=True)
+
 app = FastAPI()
 
-# 1. MIDDLEWARE (CORS)
+# Middleware CORS agar Next.js diizinkan memanggil API
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], 
@@ -40,7 +46,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 2. LOAD MODELS
+# LOAD MODEL UTAMA (Saat Booting Server)
 try:
     model = joblib.load('models/logistic_model.pkl')
     tfidf = joblib.load('models/tfidf_vectorizer.pkl')
@@ -48,7 +54,9 @@ try:
 except Exception as e:
     print(f"Error loading model: {e}")
 
-# 3. SCHEMAS (Pydantic)
+# ==============================================================================
+# SCHEMAS (Pydantic Models)
+# ==============================================================================
 class UserCreate(BaseModel):
     username: str
     password: str
@@ -57,14 +65,13 @@ class UserCreate(BaseModel):
 class TextRequest(BaseModel):
     text: str
 
-
 class FeedbackRequest(BaseModel):
     prediction_id: int
     correct_label: str
     comment: Optional[str] = None
 
 # ==============================================================================
-# ENDPOINTS
+# ENDPOINTS PUBLIK & PENGGUNA BIASA
 # ==============================================================================
 
 @app.get("/")
@@ -99,18 +106,15 @@ async def login(user_data: UserCreate, db: Session = Depends(get_db)):
         "role": user.role
     }
 
-@app.get("/admin/dashboard")
-async def admin_dashboard(admin: User = Depends(check_admin_role)):
-    return {"message": f"Halo Admin {admin.username}, selamat datang di panel kontrol!"}
+# --- SYSTEM FEEDBACK ---
 
-# 1. ENDPOINT FEEDBACK (BARU)
 @app.post("/feedback")
 async def save_feedback(data: FeedbackRequest, db: Session = Depends(get_db)):
     prediction = db.query(Prediction).filter(Prediction.id == data.prediction_id).first()
     if not prediction:
         raise HTTPException(status_code=404, detail="Data prediksi tidak ditemukan")
         
-    from app.models import Feedback # Import lokal
+    from app.models import Feedback
     new_feedback = Feedback(
         prediction_id=data.prediction_id,
         correct_label=data.correct_label,
@@ -120,7 +124,7 @@ async def save_feedback(data: FeedbackRequest, db: Session = Depends(get_db)):
     db.commit()
     return {"status": "success", "message": "Terima kasih! Koreksi Anda berhasil disimpan."}
 
-# --- HISTORY SECTION (RUTE YANG SEBELUMNYA HILANG) ---
+# --- USER PREDICTION HISTORY ---
 
 @app.get("/history")
 async def get_user_history(
@@ -144,7 +148,7 @@ async def get_user_history(
         for p in predictions
     ]
 
-# --- PREDICTION SECTION ---
+# --- CORE PREDICTION PIPELINE ---
 
 @app.post("/predict")
 async def predict(
@@ -164,8 +168,7 @@ async def predict(
         res_label = "AI" if prediction == 1 else "Human"
         conf_value = float(probability[prediction])
         
-        # Ekstrak nilai stilometri mentah untuk dikirim ke frontend
-        # style_feat memiliki struktur [[avg_sent_len, lex_div, punct_dens]]
+        # Ekstrak nilai stilometri mentah
         raw_avg_sent = float(style_feat[0][0])
         raw_lex_div = float(style_feat[0][1])
         raw_punct_dens = float(style_feat[0][2])
@@ -207,7 +210,6 @@ async def predict(
             "prediction": res_label,
             "confidence": f"{conf_value*100:.2f}%",
             "prediction_id": new_prediction.id,
-            # KIRIM NILAI DATA STILOMETRI KE FRONTEND
             "stylometry": {
                 "avg_sent_len": f"{raw_avg_sent:.1f} kata/kalimat",
                 "lex_div": f"{raw_lex_div * 100:.1f}% kosakata unik",
@@ -218,28 +220,16 @@ async def predict(
         print(f"Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-import os
-import shutil
-from fastapi import UploadFile, File
-
-# Pastikan folder penyimpanan uploads dan models ada di server
-os.makedirs("uploads", exist_ok=True)
-os.makedirs("models", exist_ok=True)
-
 # ==============================================================================
-# ENDPOINTS KHUSUS ADMINISTRATOR (DILINDUNGI JWT & ROLE CHECK)
+# ENDPOINTS ADMINISTRATOR (DILINDUNGI JWT & ROLE CHECK)
 # ==============================================================================
 
-# 1. API UNTUK MENGAMBIL STATISTIK DASHBOARD ADMIN
-# ==============================================================================
-# UPDATE: API STATISTIK ADMIN (DENGAN DATA GRAFIK KOMPREHENSIF)
-# ==============================================================================
+# 1. API STATISTIK DASHBOARD ADMIN (DENGAN VISUALISASI)
 @app.get("/admin/stats")
 async def get_admin_stats(
     admin: User = Depends(check_admin_role), 
     db: Session = Depends(get_db)
 ):
-    # 1. Hitung data dasar
     total_users = db.query(User).count()
     total_predictions = db.query(Prediction).count()
     
@@ -249,18 +239,14 @@ async def get_admin_stats(
     from app.models import Feedback
     total_feedback = db.query(Feedback).count()
     
-    # 2. Hitung distribusi hasil klasifikasi
     ai_count = db.query(Prediction).filter(Prediction.prediction_result == "AI").count()
     human_count = db.query(Prediction).filter(Prediction.prediction_result == "Human").count()
     
-    # 3. Hitung aktivitas 7 hari terakhir (Menggunakan func.date yang 100% presisi)
     daily_activity = []
     print("\n=== DEBUG AKTIVITAS HARIAN ===")
     
     for i in range(6, -1, -1):
         day = datetime.date.today() - datetime.timedelta(days=i)
-        
-        # Bandingkan HANYA tanggalnya saja, abaikan jam menit detik (sangat aman)
         count = db.query(Prediction).filter(
             func.date(Prediction.created_at) == day
         ).count()
@@ -270,7 +256,6 @@ async def get_admin_stats(
             "count": count
         })
         print(f"Tanggal: {day} ({day.strftime('%a')}) -> Jumlah Deteksi: {count}")
-        
     print("==============================\n")
     
     return {
@@ -285,7 +270,7 @@ async def get_admin_stats(
         "daily_activity": daily_activity
     }
 
-# 2. API UNTUK MENGAMBIL DAFTAR RIWAYAT VERSI MODEL
+# 2. API DAFTAR RIWAYAT VERSI MODEL
 @app.get("/admin/models")
 async def get_model_versions(
     admin: User = Depends(check_admin_role), 
@@ -304,7 +289,7 @@ async def get_model_versions(
         for v in versions
     ]
 
-# 3. API UNTUK UNGGAH DATASET CSV BARU
+# 3. API UNTUK MENERIMA FILE DATASET DARI DATASETMERGER FRONTEND
 @app.post("/admin/upload")
 async def upload_dataset(
     file: UploadFile = File(...),
@@ -314,13 +299,16 @@ async def upload_dataset(
     if not file.filename.endswith('.csv'):
         raise HTTPException(status_code=400, detail="Format file tidak valid. Mohon unggah file berekstensi .csv")
     
-    file_path = f"uploads/{file.filename}"
+    # KUNCI INTEGRASI: Tambahkan timestamp unik pada nama file agar tidak saling menimpa
+    timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%S")
+    filename_only, file_extension = os.path.splitext(file.filename)
+    unique_filename = f"{filename_only}_{timestamp}{file_extension}"
+    file_path = f"uploads/{unique_filename}"
     
-    # Simpan file secara fisik ke folder uploads
+    # Simpan file secara fisik ke folder /uploads
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
         
-    # Hitung jumlah baris data di dalam CSV
     try:
         temp_df = pd.read_csv(file_path)
         row_count = len(temp_df)
@@ -328,9 +316,9 @@ async def upload_dataset(
         raise HTTPException(status_code=400, detail=f"Gagal membaca file CSV: {str(e)}")
 
     # Catat riwayat unggahan ke tabel datasets di MySQL
-    from app.models import Dataset # Import lokal
+    from app.models import Dataset
     new_dataset = Dataset(
-        filename=file.filename,
+        filename=unique_filename, # Simpan nama unik di DB
         file_path=file_path,
         uploaded_by=admin.id,
         row_count=row_count
@@ -341,13 +329,12 @@ async def upload_dataset(
     
     return {
         "status": "success",
-        "message": f"Dataset {file.filename} berhasil diunggah.",
+        "message": f"Dataset {file.filename} berhasil digabungkan dan diunggah.",
         "dataset_id": new_dataset.id,
         "row_count": row_count
     }
 
-# 4. API UNTUK MEMICU PROSES TRAINING ULANG (RETRAINING SYSTEM)
-# 4. API UNTUK MEMICU PROSES TRAINING ULANG (RETRAINING SYSTEM DENGAN ABLATION STUDY)
+# 4. API UNTUK TRAINING ULANG MODEL MENGGUNAKAN METODE PENGGABUNGAN DATASET (MLOPS RUN)
 @app.post("/admin/retrain/{dataset_id}")
 async def retrain_model(
     dataset_id: int,
@@ -361,31 +348,50 @@ async def retrain_model(
         raise HTTPException(status_code=404, detail="Dataset tidak ditemukan di database.")
         
     try:
-        # Load dataset baru
+        # Load dataset baru yang baru digabungkan di Next.js
         df_new = pd.read_csv(dataset_record.file_path)
         
-        # Validasi kolom minimum
+        # Validasi kolom minimum pada data baru
         if 'text' not in df_new.columns or 'label' not in df_new.columns:
             raise HTTPException(status_code=400, detail="Dataset harus memiliki kolom 'text' dan 'label'.")
 
+        # LOGIKA PENGGABUNGAN AUTOMATIS (Mencegah Catastrophic Forgetting)
+        if os.path.exists("final_detection_dataset.csv"):
+            df_base = pd.read_csv("final_detection_dataset.csv")
+            df_combined = pd.concat([df_base, df_new], ignore_index=True)
+            print(f"Berhasil memuat dataset master: {len(df_base)} baris.")
+        else:
+            df_combined = df_new
+            print("Warning: File 'final_detection_dataset.csv' tidak ditemukan. Menggunakan dataset baru sebagai master.")
+
+        # Buang teks yang duplikat
+        df_combined = df_combined.drop_duplicates(subset=['text']).reset_index(drop=True)
+
+        # Cetak log penggabungan data secara visual di terminal
+        print("\n" + "="*50)
+        print("=== PROSES SINKRONISASI & RETRAINING DATASET ===")
+        print(f"Data Baru Terbaca   : {len(df_new)} baris")
+        print(f"Total Data Gabungan (Tanpa Duplikat): {len(df_combined)} baris")
+        print("="*50 + "\n")
+
         # A. Preprocessing
-        df_new['clean_text'] = df_new['text'].apply(clean_text)
+        df_combined['clean_text'] = df_combined['text'].apply(clean_text)
 
         # B. Ekstraksi Fitur Stilometri (Feature Engineering)
-        print("Mengekstrak fitur stilometri...")
+        print("Mengekstrak fitur stilometri data gabungan...")
         style_features_list = []
-        for t in df_new['clean_text']:
+        for t in df_combined['clean_text']:
             style_features_list.append(extract_stylometry(t).flatten())
         X_stilo_only = np.array(style_features_list)
 
         # C. Ekstraksi Fitur TF-IDF
-        print("Membangun model TF-IDF baru...")
+        print("Membangun model TF-IDF baru dari data gabungan...")
         new_tfidf = TfidfVectorizer(max_features=1000)
-        X_tfidf_only = new_tfidf.fit_transform(df_new['clean_text']).toarray()
+        X_tfidf_only = new_tfidf.fit_transform(df_combined['clean_text']).toarray()
 
         # Gabungkan Fitur untuk Skenario Hibrida
         X_hybrid = np.hstack((X_tfidf_only, X_stilo_only))
-        y_new = df_new['label']
+        y_new = df_combined['label']
 
         # Split Data untuk Ketiga Skenario (Adu Adil dengan random_state=42)
         X_train_t, X_test_t, y_train, y_test = train_test_split(X_tfidf_only, y_new, test_size=0.2, random_state=42)
@@ -395,7 +401,6 @@ async def retrain_model(
         # -----------------------------------------------------------------
         # PROSES EVALUASI KOMPARATIF (ABLATION STUDY ONLINE)
         # -----------------------------------------------------------------
-        from sklearn.metrics import accuracy_score, f1_score
         print("Mengevaluasi skenario komparatif fitur...")
 
         # Skenario 1: TF-IDF Saja
@@ -453,7 +458,7 @@ async def retrain_model(
         
         new_version_record = ModelVersion(
             version_name=f"v-{version_code}",
-            accuracy=acc_hybrid, # Menggunakan akurasi model Hibrida
+            accuracy=acc_hybrid, 
             f1_score=f1_hybrid,
             dataset_id=dataset_id,
             model_path=model_path,
@@ -461,6 +466,10 @@ async def retrain_model(
         )
         db.add(new_version_record)
         db.commit()
+
+        # I. UPDATE FILE DATASET MASTER FISIK DI SERVER
+        df_combined.to_csv("final_detection_dataset.csv", index=False, encoding="utf-8-sig")
+        print("[Log] Berkas 'final_detection_dataset.csv' berhasil diperbarui di server.")
 
         return {
             "status": "success",
@@ -475,11 +484,7 @@ async def retrain_model(
         print(f"Error training: {e}")
         raise HTTPException(status_code=500, detail=f"Gagal melatih ulang model: {str(e)}")
 
-# ==============================================================================
-# API TAMBAHAN UNTUK AKTIVASI MODEL & AUDIT FEEDBACK (ADMIN)
-# ==============================================================================
-
-# 1. API UNTUK MENGAMBIL DAFTAR DATASET YANG SUDAH DIUPLOAD
+# --- ADMIN API: DATASET LIST ---
 @app.get("/admin/datasets")
 async def get_uploaded_datasets(
     admin: User = Depends(check_admin_role), 
@@ -497,14 +502,13 @@ async def get_uploaded_datasets(
         for d in datasets
     ]
 
-# 2. API UNTUK MENGAMBIL DAFTAR FEEDBACK DARI USER (JOIN TABLE)
+# --- ADMIN API: AUDIT FEEDBACK ---
 @app.get("/admin/feedback")
 async def get_user_feedbacks(
     admin: User = Depends(check_admin_role), 
     db: Session = Depends(get_db)
 ):
     from app.models import Feedback, Prediction
-    # Lakukan JOIN table antara Feedback dan Predictions untuk mengambil teks input yang dikoreksi
     feedbacks = db.query(Feedback).join(Prediction).order_by(Feedback.created_at.desc()).all()
     return [
         {
@@ -519,7 +523,7 @@ async def get_user_feedbacks(
         for f in feedbacks
     ]
 
-# 3. API UNTUK MENGAKTIFKAN KEMBALI MODEL VERSI LAMA (ROLLBACK SYSTEM)
+# --- ADMIN API: ROLLBACK ACTIVATION ---
 @app.post("/admin/models/activate/{model_id}")
 async def activate_model_version(
     model_id: int,
@@ -531,20 +535,16 @@ async def activate_model_version(
         raise HTTPException(status_code=404, detail="Versi model tidak ditemukan.")
         
     try:
-        # Tentukan file model (.pkl) dan vectorizer (.pkl) target
         model_path = target_model.model_path
         tfidf_path = target_model.model_path.replace("logistic_model", "tfidf_vectorizer")
         
-        # Salin file target menjadi file utama pkl
         shutil.copy(model_path, 'models/logistic_model.pkl')
         shutil.copy(tfidf_path, 'models/tfidf_vectorizer.pkl')
         
-        # Muat ulang (reload) model ke memori backend
         global model, tfidf
         model = joblib.load('models/logistic_model.pkl')
         tfidf = joblib.load('models/tfidf_vectorizer.pkl')
         
-        # Update status is_active di database MySQL
         db.query(ModelVersion).update({ModelVersion.is_active: False})
         target_model.is_active = True
         db.commit()
@@ -559,5 +559,4 @@ async def activate_model_version(
 
 if __name__ == "__main__":
     import uvicorn
-    # Menggunakan string "main:app" agar mode reload otomatis aktif
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

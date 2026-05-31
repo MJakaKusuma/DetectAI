@@ -44,7 +44,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center px-4 py-16 bg-gradient-to-b from-indigo-50/20 to-transparent">
+    <div className="min-h-[80vh] flex items-center justify-center px-4 py-16 bg-linear-to-b from-indigo-50/20 to-transparent">
       <div className="max-w-md w-full bg-white border border-slate-100 shadow-2xl shadow-slate-200/80 rounded-2xl p-8 sm:p-10">
         
         {/* Title */}
