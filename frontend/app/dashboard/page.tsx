@@ -245,27 +245,14 @@ export default function DashboardPage() {
       <div className="print:hidden space-y-8">
         
         {/* Header Panel */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-6 bg-white border border-slate-200/60 rounded-2xl shadow-sm gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-indigo-500 text-white rounded-xl flex items-center justify-center font-extrabold text-lg uppercase shadow-md shadow-indigo-100">
-              {username ? username[0] : "G"}
-            </div>
-            <div>
-              <h2 className="text-lg sm:text-xl font-extrabold text-slate-800">Halo, {username ? username : "Guest User"}!</h2>
-              <p className="text-xs text-slate-400">{username ? "Status: Pengguna Terdaftar" : "Silakan Login untuk menyimpan riwayat deteksi secara permanen."}</p>
-            </div>
+        <div className="mb-8 animate-fade-in">
+          <div className="flex items-center gap-2.5">
+            <span className="text-2xl">📝</span>
+            <h1 className="text-3xl font-black text-slate-800 tracking-tight">AI Text Analyzer</h1>
           </div>
-          <div className="w-full sm:w-auto flex justify-end">
-            {username ? (
-              <button onClick={handleLogout} className="w-full sm:w-auto px-4 py-2 text-xs font-bold text-rose-600 border border-rose-200 hover:bg-rose-50 rounded-lg transition-all">
-                Keluar Akun
-              </button>
-            ) : (
-              <Link href="/login" className="w-full sm:w-auto text-center px-5 py-2.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-all shadow-md">
-                Login Akun
-              </Link>
-            )}
-          </div>
+          <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+            Evaluasi keaslian dokumen Bahasa Indonesia menggunakan parameter analisis Stilometri struktural teks dan TF-IDF secara real-time.
+          </p>
         </div>
 
         {/* Tab Navigation */}
@@ -309,7 +296,7 @@ export default function DashboardPage() {
 
             {/* Kolom Kanan: Hasil & Penjelasan Diagnostik */}
             <div className="space-y-6">
-              <div className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm min-h-[350px] flex flex-col justify-between">
+              <div className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm min-h-87.5 flex flex-col justify-between">
                 {loading ? (
                   <ScannerLoader />
                 ) : result ? (
@@ -456,29 +443,36 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* 2. TAB RIWAYAT (DENGAN INTEGRASI PAGINASI) */}
+        {/* ============================================================================== */}
+        {/* 2. TAB RIWAYAT (TABEL RESPONSIF SEPENUHNYA - BEBAS MEPET DI MOBILE) */}
+        {/* ============================================================================== */}
         {activeTab === "history" && (
-          <div className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm overflow-hidden animate-fade-in flex flex-col justify-between min-h-[400px]">
+          <div className="bg-white border border-slate-200/60 rounded-2xl p-4 sm:p-6 shadow-sm overflow-hidden animate-fade-in flex flex-col justify-between min-h-100">
             <div>
               <h3 className="text-base font-bold text-slate-800 mb-6">Riwayat Klasifikasi Teks</h3>
               {history.length === 0 ? (
                 <div className="text-center py-12 text-slate-400 text-sm">Belum ada riwayat pengujian yang tercatat.</div>
               ) : (
-                <div className="overflow-x-auto -mx-6 px-6">
-                  <table className="w-full text-left text-sm text-slate-600 min-w-[600px]">
+                /* SOLUSI MOBILE: Gunakan -mx-4 sm:-mx-6 & px-4 sm:px-6 untuk jarak tepi yang seimbang */
+                <div className="overflow-x-auto -mx-4 sm:-mx-6 px-4 sm:px-6">
+                  {/* Gunakan min-w-175 (700px) agar kolom memiliki ruang gerak yang luas saat digeser di HP */}
+                  <table className="w-full text-left text-sm text-slate-600 min-w-175">
                     <thead>
                       <tr className="border-b border-slate-100 text-slate-400 text-xs font-bold uppercase tracking-wider">
-                        <th className="pb-3">Tanggal</th>
+                        <th className="pb-3 pl-2">Tanggal</th>
                         <th className="pb-3">Cuplikan Teks</th>
                         <th className="pb-3">Hasil Prediksi</th>
-                        <th className="pb-3">Confidence</th>
+                        <th className="pb-3 text-right pr-2">Confidence</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {currentHistoryRows.map((item) => (
                         <tr key={item.id} className="hover:bg-slate-50/50">
-                          <td className="py-4 text-xs font-medium text-slate-400 whitespace-nowrap">{item.created_at}</td>
-                          <td className="py-4 font-medium text-slate-700 max-w-xs truncate">{item.input_text}</td>
+                          <td className="py-4 text-xs font-medium text-slate-400 whitespace-nowrap pl-2">{item.created_at}</td>
+                          {/* Sembunyikan nama dengan batas max-w-[150px] agar tidak menekan kolom lain di HP */}
+                          <td className="py-4 font-medium text-slate-700 max-w-[150px] sm:max-w-xs truncate" title={item.input_text}>
+                            {item.input_text}
+                          </td>
                           <td className="py-4">
                             <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
                               item.prediction_result === "AI" ? "bg-rose-50 text-rose-700" : "bg-emerald-50 text-emerald-700"
@@ -486,7 +480,7 @@ export default function DashboardPage() {
                               {item.prediction_result === "AI" ? "🤖 AI" : "👤 Human"}
                             </span>
                           </td>
-                          <td className="py-4 font-bold text-slate-800">{item.confidence}</td>
+                          <td className="py-4 font-bold text-slate-800 text-right pr-2">{item.confidence}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -505,14 +499,14 @@ export default function DashboardPage() {
                   <button 
                     onClick={() => setHistoryPage(prev => Math.max(prev - 1, 1))} 
                     disabled={historyPage === 1}
-                    className="px-3 py-1.5 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 font-bold transition-all disabled:opacity-50"
+                    className="px-3 py-1.5 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Prev
                   </button>
                   <button 
                     onClick={() => setHistoryPage(prev => Math.min(prev + 1, totalHistoryPages))} 
                     disabled={historyPage === totalHistoryPages}
-                    className="px-3 py-1.5 bg-slate-900 text-white rounded-lg font-bold hover:bg-slate-800 transition-all disabled:opacity-50"
+                    className="px-3 py-1.5 bg-slate-900 text-white rounded-lg font-bold hover:bg-slate-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Next
                   </button>
@@ -522,28 +516,162 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* 3. TAB STATISTICS */}
-        {activeTab === "stats" && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in">
-            <StatCard 
-              title="Total Pengujian" 
-              value={totalScans} 
-              icon={<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>} 
-            />
-            <StatCard 
-              title="Deteksi AI" 
-              value={`${aiScans} Dokumen`} 
-              trend={aiRatio}
-              isPositive={false}
-              icon={<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>} 
-          />
-            <StatCard 
-              title="Deteksi Manusia" 
-              value={`${humanScans} Dokumen`} 
-              icon={<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>} 
-            />
-          </div>
-        )}
+        {/* ============================================================================== */}
+        {/* 3. TAB STATISTICS (DENGAN VISUALISASI GRAFIK BAR & DONUT KOMPREHENSIF) */}
+        {/* ============================================================================== */}
+        {activeTab === "stats" && (() => {
+          // --- ALGORITMA MATEMATIKA LOKAL UNTUK MEMBANGUN GRAFIK ---
+          const totalPredictions = history.length;
+          const aiScansCount = history.filter(h => h.prediction_result === "AI").length;
+          const humanScansCount = totalPredictions - aiScansCount;
+          const aiPercentageLocal = totalPredictions > 0 ? (aiScansCount / totalPredictions) * 100 : 0;
+          
+          // Keliling lingkaran donut = 2 * pi * r (r = 40, Keliling = 251.2)
+          const strokeDashArray = 251.2;
+          const strokeDashOffset = strokeDashArray - (strokeDashArray * aiPercentageLocal) / 100;
+
+          // Memetakan aktivitas 7 hari terakhir secara dinamis berdasarkan data 'history'
+          const getDailyActivity = () => {
+            const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+            const activityMap: Record<string, number> = {};
+            
+            // Inisialisasi 7 hari ke belakang dengan nilai 0
+            for (let i = 6; i >= 0; i--) {
+              const d = new Date();
+              d.setDate(d.getDate() - i);
+              activityMap[daysOfWeek[d.getDay()]] = 0;
+            }
+            
+            // Hitung frekuensi data dari riwayat
+            history.forEach(item => {
+              try {
+                const dateParsed = new Date(item.created_at.replace(" ", "T"));
+                const dayName = daysOfWeek[dateParsed.getDay()];
+                if (dayName in activityMap) {
+                  activityMap[dayName]++;
+                }
+              } catch (e) {
+                console.error(e);
+              }
+            });
+            
+            return Object.keys(activityMap).map(day => ({
+              day,
+              count: activityMap[day]
+            }));
+          };
+
+          const dailyActivity = getDailyActivity();
+          const maxBarValue = Math.max(...dailyActivity.map(d => d.count), 5);
+
+          return (
+            <div className="space-y-8 animate-fade-in">
+              
+              {/* Grid Statistik Angka */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <StatCard 
+                  title="Total Pengujian" 
+                  value={totalScans} 
+                  icon={<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>} 
+                />
+                <StatCard 
+                  title="Deteksi AI" 
+                  value={`${aiScansCount} Dokumen`} 
+                  trend={aiRatio}
+                  isPositive={false}
+                  icon={<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>} 
+                />
+                <StatCard 
+                  title="Deteksi Manusia" 
+                  value={`${humanScansCount} Dokumen`} 
+                  icon={<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>} 
+                />
+              </div>
+
+              {/* PANEL GRAFIK INTEGRASI (RESPONSIF & DETAIL) */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                
+                {/* GRAFIK 1: Aktivitas Deteksi 7 Hari Terakhir */}
+                <div className="lg:col-span-2 bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider mb-2">Tren Aktivitas Deteksi Anda</h3>
+                    <p className="text-[10px] text-slate-400 mb-6">Kalkulasi total pengujian teks yang Anda lakukan dalam 7 hari terakhir.</p>
+                  </div>
+
+                  {/* Rangka Batang */}
+                  <div className="flex justify-between items-end h-52 pt-6 border-b border-slate-100">
+                    {dailyActivity.map((item, idx) => (
+                      <div key={idx} className="flex flex-col items-center justify-end h-full flex-1 group">
+                        {/* Nilai Hover */}
+                        <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-[10px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded -translate-y-1">
+                          {item.count}
+                        </span>
+                        {/* Batang Dinamis */}
+                        <div className="w-8 sm:w-12 h-32 flex items-end">
+                          <div 
+                            className="w-full bg-linear-to-t from-indigo-500 to-blue-500 rounded-t-lg group-hover:from-indigo-600 group-hover:to-blue-600 transition-all duration-500"
+                            style={{ height: `${(item.count / maxBarValue) * 100}%` }}
+                          />
+                        </div>
+                        <span className="text-[10px] font-bold text-slate-400 py-3">{item.day}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* GRAFIK 2: Proporsi Hasil Klasifikasi */}
+                <div className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider mb-2">Proporsi Pengujian Akun</h3>
+                    <p className="text-[10px] text-slate-400 mb-6 font-medium">Perbandingan persentase teks terdeteksi mesin vs manusia pada akun Anda.</p>
+                  </div>
+
+                  {/* Donut Chart SVG */}
+                  <div className="relative flex justify-center items-center py-6">
+                    {totalPredictions === 0 ? (
+                      <div className="text-xs text-slate-400 text-center py-12">Belum ada riwayat klasifikasi.</div>
+                    ) : (
+                      <>
+                        <svg width="150" height="150" className="-rotate-90">
+                          <circle cx="75" cy="75" r="40" fill="transparent" stroke="#10b981" strokeWidth="14" />
+                          <circle 
+                            cx="75" 
+                            cy="75" 
+                            r="40" 
+                            fill="transparent" 
+                            stroke="#f43f5e" 
+                            strokeWidth="14" 
+                            strokeDasharray={strokeDashArray}
+                            strokeDashoffset={strokeDashOffset}
+                            className="transition-all duration-700"
+                          />
+                        </svg>
+                        <div className="absolute flex flex-col items-center">
+                          <span className="text-xl font-black text-slate-800">{aiPercentageLocal.toFixed(0)}%</span>
+                          <span className="text-[9px] text-slate-400 uppercase font-bold">Deteksi AI</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Legend Indikator */}
+                  <div className="flex justify-center gap-6 pt-4 border-t border-slate-100 text-xs text-slate-600 font-semibold">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded bg-[#10b981]" />
+                      <span>Human ({humanScansCount})</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded bg-[#f43f5e]" />
+                      <span>AI ({aiScansCount})</span>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+            </div>
+          );
+        })()}
 
       </div>
     </div>

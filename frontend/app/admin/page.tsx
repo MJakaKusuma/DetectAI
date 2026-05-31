@@ -202,6 +202,36 @@ export default function AdminPage() {
     }
   };
 
+  // FUNGSI EDIT/RENAME DATASET (MENGGUNAKAN PROMPT JAVASCRIPT YANG STABIL)
+  const handleRenameDataset = async (datasetId: number, currentFilename: string) => {
+    const newName = window.prompt("Masukkan nama file baru berekstensi .csv:", currentFilename);
+    if (!newName || newName.trim() === "" || newName === currentFilename) return;
+
+    const token = localStorage.getItem("token");
+    try {
+      await apiRequest(`/admin/datasets/${datasetId}`, "PUT", { new_filename: newName }, token);
+      showToast(`Nama berkas berhasil diubah menjadi ${newName}`, "success");
+      fetchAdminData(); // Refresh list dataset
+    } catch (err: unknown) {
+      showToast((err as Error).message || "Gagal mengubah nama berkas.", "error");
+    }
+  };
+
+  // FUNGSI HAPUS DATASET SECARA PERMANEN
+  const handleDeleteDataset = async (datasetId: number, filename: string) => {
+    const confirmDelete = window.confirm(`Apakah Anda yakin ingin menghapus dataset "${filename}" secara permanen dari server?`);
+    if (!confirmDelete) return;
+
+    const token = localStorage.getItem("token");
+    try {
+      await apiRequest(`/admin/datasets/${datasetId}`, "DELETE", null, token);
+      showToast("Dataset berhasil dihapus secara permanen!", "success");
+      fetchAdminData(); // Refresh list dataset
+    } catch (err: unknown) {
+      showToast((err as Error).message || "Gagal menghapus dataset.", "error");
+    }
+  };
+
   const totalPredictions = stats ? stats.distribution.ai_count + stats.distribution.human_count : 0;
   const aiPercentage = stats && totalPredictions > 0 ? (stats.distribution.ai_count / totalPredictions) * 100 : 0;
   
@@ -228,10 +258,16 @@ export default function AdminPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 space-y-10 min-h-[75vh]">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-black text-slate-800">Panel Kontrol Administrator</h1>
-        <p className="text-xs text-slate-400 mt-1">Konfigurasi database, kelola data latih, dan pantau grafik aktivitas sistem secara real-time.</p>
+     <div className="mb-8 animate-fade-in">
+      <div className="flex items-center gap-2.5">
+        <span className="text-2xl">🛠️</span>
+        <h1 className="text-3xl font-black text-slate-800 tracking-tight">Administrator Panel</h1>
       </div>
+      <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+        Pusat kendali MLOps: Lakukan retraining model, kelola repositori data latih, dan lakukan audit umpan balik dari pengguna.
+      </p>
+    </div>
+
 
       {/* Tab Navigation */}
       <div className="flex border-b border-slate-200 gap-6 overflow-x-auto whitespace-nowrap pb-1">
@@ -420,28 +456,47 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* Sisi Kanan: Daftar Dataset */}
+          {/* Sisi Kanan: Daftar Dataset (DENGAN REWRITE TABEL RESPONSIF & AKSI) */}
           <div className="lg:col-span-2 bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm flex flex-col justify-between min-h-112.5">
             <div>
               <h3 className="text-base font-bold text-slate-800 mb-6">Berkas Dataset di Server</h3>
               {datasets.length === 0 ? (
                 <div className="text-center py-12 text-slate-400 text-xs">Belum ada berkas dataset yang diunggah.</div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm text-slate-600">
+                /* SOLUSI MOBILE: Tambahkan overflow-x-auto dan pembatasan lebar luar -mx-6 px-6 */
+                <div className="overflow-x-auto -mx-6 px-6">
+                  <table className="w-full text-left text-sm text-slate-600 min-w-[700px]">
                     <thead>
                       <tr className="border-b border-slate-100 text-slate-400 text-xs font-bold uppercase tracking-wider pb-2">
                         <th className="pb-3">Tanggal Unggah</th>
                         <th className="pb-3">Nama Berkas</th>
                         <th className="pb-3 text-right">Jumlah Data</th>
+                        <th className="pb-3 text-right">Aksi</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {paginatedDatasets.currentRows.map((d) => (
                         <tr key={d.id} className="hover:bg-slate-50/50">
                           <td className="py-4 text-xs font-medium text-slate-400">{d.upload_date}</td>
-                          <td className="py-4 font-bold text-slate-700 max-w-xs truncate">{d.filename}</td>
+                          {/* Sembunyikan sisa nama yang terlalu panjang di HP dengan max-w-xs truncate */}
+                          <td className="py-4 font-bold text-slate-700 max-w-xs truncate" title={d.filename}>
+                            {d.filename}
+                          </td>
                           <td className="py-4 text-right font-semibold text-slate-800">{d.row_count} baris</td>
+                          <td className="py-4 text-right space-x-2 whitespace-nowrap">
+                            <button 
+                              onClick={() => handleRenameDataset(d.id, d.filename)}
+                              className="px-2.5 py-1 text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 rounded-md transition-all"
+                            >
+                              ✏️ Rename
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteDataset(d.id, d.filename)}
+                              className="px-2.5 py-1 text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-100 hover:bg-rose-100 rounded-md transition-all"
+                            >
+                              🗑️ Hapus
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -467,7 +522,7 @@ export default function AdminPage() {
                   <button 
                     onClick={() => setDatasetPage(prev => Math.min(prev + 1, paginatedDatasets.totalPages))} 
                     disabled={datasetPage === paginatedDatasets.totalPages}
-                    className="px-3 py-1.5 bg-slate-950 text-white rounded-lg font-bold hover:bg-slate-800 transition-all disabled:opacity-50"
+                    className="px-3 py-1.5 bg-slate-900 text-white rounded-lg font-bold hover:bg-slate-800 transition-all disabled:opacity-50"
                   >
                     Next
                   </button>

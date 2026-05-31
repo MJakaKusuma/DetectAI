@@ -557,6 +557,70 @@ async def activate_model_version(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Gagal melakukan rollback model: {str(e)}")
 
+# 1. Tambahkan skema request untuk ganti nama di bagian atas schemas/models
+class RenameDatasetRequest(BaseModel):
+    new_filename: str
+
+# 2. API UNTUK MENGUBAH NAMA DATASET (DATABASE & FISIK)
+@app.put("/admin/datasets/{dataset_id}")
+async def rename_dataset(
+    dataset_id: int,
+    data: RenameDatasetRequest,
+    admin: User = Depends(check_admin_role),
+    db: Session = Depends(get_db)
+):
+    from app.models import Dataset
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset tidak ditemukan di database.")
+        
+    new_name = data.new_filename.strip()
+    if not new_name.endswith('.csv'):
+        new_name += '.csv'
+        
+    try:
+        new_path = f"uploads/{new_name}"
+        
+        # Ubah nama file fisik di harddisk server jika ada
+        if os.path.exists(dataset.file_path):
+            os.rename(dataset.file_path, new_path)
+            
+        # Perbarui data di database MySQL
+        dataset.filename = new_name
+        dataset.file_path = new_path
+        db.commit()
+        
+        return {"status": "success", "message": f"Dataset berhasil diubah namanya menjadi {new_name}"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Gagal mengubah nama file: {str(e)}")
+
+# 3. API UNTUK MENGHAPUS DATASET SECARA PERMANEN (DATABASE & FISIK)
+@app.delete("/admin/datasets/{dataset_id}")
+async def delete_dataset(
+    dataset_id: int,
+    admin: User = Depends(check_admin_role),
+    db: Session = Depends(get_db)
+):
+    from app.models import Dataset
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset tidak ditemukan di database.")
+        
+    try:
+        # Hapus file fisik di harddisk server agar menghemat penyimpanan disk
+        if os.path.exists(dataset.file_path):
+            os.remove(dataset.file_path)
+            
+        # Hapus record dari database MySQL
+        db.delete(dataset)
+        db.commit()
+        
+        return {"status": "success", "message": "Dataset dan berkas fisik berhasil dihapus secara permanen!"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Gagal menghapus dataset: {str(e)}")
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
