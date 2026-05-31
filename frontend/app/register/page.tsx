@@ -2,7 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { apiRequest } from "@/lib/api";
+import { apiRequest } from "../lib/api";
 import { useToast } from "../components/toast";
 
 export default function RegisterPage() {

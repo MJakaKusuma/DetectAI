@@ -4,8 +4,10 @@ import joblib
 import numpy as np
 import pandas as pd
 import re
+import datetime
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import Optional
 
 # Import dari folder /app
@@ -221,27 +223,58 @@ os.makedirs("models", exist_ok=True)
 # ==============================================================================
 
 # 1. API UNTUK MENGAMBIL STATISTIK DASHBOARD ADMIN
+# ==============================================================================
+# UPDATE: API STATISTIK ADMIN (DENGAN DATA GRAFIK KOMPREHENSIF)
+# ==============================================================================
 @app.get("/admin/stats")
 async def get_admin_stats(
     admin: User = Depends(check_admin_role), 
     db: Session = Depends(get_db)
 ):
+    # 1. Hitung data dasar
     total_users = db.query(User).count()
     total_predictions = db.query(Prediction).count()
     
-    # Ambil akurasi dari model yang sedang aktif saat ini
     active_model = db.query(ModelVersion).filter(ModelVersion.is_active == True).first()
     active_accuracy = f"{active_model.accuracy * 100:.2f}%" if active_model else "0.00%"
     
-    # Hitung jumlah masukan koreksi (feedback) dari pengguna
-    from app.models import Feedback # Import lokal
+    from app.models import Feedback
     total_feedback = db.query(Feedback).count()
+    
+    # 2. Hitung distribusi hasil klasifikasi
+    ai_count = db.query(Prediction).filter(Prediction.prediction_result == "AI").count()
+    human_count = db.query(Prediction).filter(Prediction.prediction_result == "Human").count()
+    
+    # 3. Hitung aktivitas 7 hari terakhir (Menggunakan func.date yang 100% presisi)
+    daily_activity = []
+    print("\n=== DEBUG AKTIVITAS HARIAN ===")
+    
+    for i in range(6, -1, -1):
+        day = datetime.date.today() - datetime.timedelta(days=i)
+        
+        # Bandingkan HANYA tanggalnya saja, abaikan jam menit detik (sangat aman)
+        count = db.query(Prediction).filter(
+            func.date(Prediction.created_at) == day
+        ).count()
+        
+        daily_activity.append({
+            "day": day.strftime("%a"), 
+            "count": count
+        })
+        print(f"Tanggal: {day} ({day.strftime('%a')}) -> Jumlah Deteksi: {count}")
+        
+    print("==============================\n")
     
     return {
         "total_users": total_users,
         "total_predictions": total_predictions,
         "active_accuracy": active_accuracy,
-        "total_feedback": total_feedback
+        "total_feedback": total_feedback,
+        "distribution": {
+            "ai_count": ai_count,
+            "human_count": human_count
+        },
+        "daily_activity": daily_activity
     }
 
 # 2. API UNTUK MENGAMBIL DAFTAR RIWAYAT VERSI MODEL
@@ -404,6 +437,88 @@ async def retrain_model(
         db.rollback()
         print(f"Error training: {e}")
         raise HTTPException(status_code=500, detail=f"Gagal melatih ulang model: {str(e)}")
+
+# ==============================================================================
+# API TAMBAHAN UNTUK AKTIVASI MODEL & AUDIT FEEDBACK (ADMIN)
+# ==============================================================================
+
+# 1. API UNTUK MENGAMBIL DAFTAR DATASET YANG SUDAH DIUPLOAD
+@app.get("/admin/datasets")
+async def get_uploaded_datasets(
+    admin: User = Depends(check_admin_role), 
+    db: Session = Depends(get_db)
+):
+    from app.models import Dataset
+    datasets = db.query(Dataset).order_by(Dataset.upload_date.desc()).all()
+    return [
+        {
+            "id": d.id,
+            "filename": d.filename,
+            "row_count": d.row_count,
+            "upload_date": d.upload_date.strftime("%Y-%m-%d %H:%M:%S")
+        }
+        for d in datasets
+    ]
+
+# 2. API UNTUK MENGAMBIL DAFTAR FEEDBACK DARI USER (JOIN TABLE)
+@app.get("/admin/feedback")
+async def get_user_feedbacks(
+    admin: User = Depends(check_admin_role), 
+    db: Session = Depends(get_db)
+):
+    from app.models import Feedback, Prediction
+    # Lakukan JOIN table antara Feedback dan Predictions untuk mengambil teks input yang dikoreksi
+    feedbacks = db.query(Feedback).join(Prediction).order_by(Feedback.created_at.desc()).all()
+    return [
+        {
+            "id": f.id,
+            "prediction_id": f.prediction_id,
+            "input_text": f.prediction.input_text[:120] + "..." if len(f.prediction.input_text) > 120 else f.prediction.input_text,
+            "system_prediction": f.prediction.prediction_result,
+            "correct_label": f.correct_label,
+            "comment": f.comment,
+            "created_at": f.created_at.strftime("%Y-%m-%d %H:%M:%S")
+        }
+        for f in feedbacks
+    ]
+
+# 3. API UNTUK MENGAKTIFKAN KEMBALI MODEL VERSI LAMA (ROLLBACK SYSTEM)
+@app.post("/admin/models/activate/{model_id}")
+async def activate_model_version(
+    model_id: int,
+    admin: User = Depends(check_admin_role),
+    db: Session = Depends(get_db)
+):
+    target_model = db.query(ModelVersion).filter(ModelVersion.id == model_id).first()
+    if not target_model:
+        raise HTTPException(status_code=404, detail="Versi model tidak ditemukan.")
+        
+    try:
+        # Tentukan file model (.pkl) dan vectorizer (.pkl) target
+        model_path = target_model.model_path
+        tfidf_path = target_model.model_path.replace("logistic_model", "tfidf_vectorizer")
+        
+        # Salin file target menjadi file utama pkl
+        shutil.copy(model_path, 'models/logistic_model.pkl')
+        shutil.copy(tfidf_path, 'models/tfidf_vectorizer.pkl')
+        
+        # Muat ulang (reload) model ke memori backend
+        global model, tfidf
+        model = joblib.load('models/logistic_model.pkl')
+        tfidf = joblib.load('models/tfidf_vectorizer.pkl')
+        
+        # Update status is_active di database MySQL
+        db.query(ModelVersion).update({ModelVersion.is_active: False})
+        target_model.is_active = True
+        db.commit()
+        
+        return {
+            "status": "success", 
+            "message": f"Model versi {target_model.version_name} berhasil diaktifkan kembali."
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Gagal melakukan rollback model: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
