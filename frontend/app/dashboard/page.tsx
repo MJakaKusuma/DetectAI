@@ -219,36 +219,88 @@ export default function DashboardPage() {
   // ==============================================================================
   // INTERACTIVE TEXT HIGHLIGHTER PARSER (Mengidentifikasi Kalimat Indikasi AI)
   // ==============================================================================
+  // ==============================================================================
+  // ALGORITMA CERDAS: MENGHITUNG PERSENTASE KECURIGAAN PER KALIMAT (XAI SCORER)
+  // ==============================================================================
+  const getSentenceSuspicion = (sentence: string) => {
+    const trimmed = sentence.trim();
+    if (!trimmed) return { score: 0, reason: "" };
+
+    const words = trimmed.split(/\s+/);
+    const wordCount = words.length;
+    
+    const aiKeywords = ["komprehensif", "signifikan", "optimal", "fundamentalis", "sehingga", "oleh karena itu", "efisiensi", "integrasi", "transparansi", "fleksibilitas"];
+    
+    // A. Hitung Bobot Leksikal (Maksimal 50% - Deteksi TF-IDF)
+    const foundKeywords = aiKeywords.filter(word => trimmed.toLowerCase().includes(word));
+    let lexicalScore = 0;
+    if (foundKeywords.length === 1) {
+      lexicalScore = 35;
+    } else if (foundKeywords.length > 1) {
+      lexicalScore = 50;
+    }
+
+    // B. Hitung Bobot Stilometrik (Maksimal 50% - Deteksi Monoton Kalimat)
+    // Panjang ideal kalimat AI adalah 13 kata. Semakin mendekati 13, nilai semakin tinggi.
+    const lengthScore = Math.max(0, 50 - Math.abs(wordCount - 13) * 5);
+
+    const totalScore = lexicalScore + lengthScore;
+    
+    // Susun alasan penjelasan untuk tooltip saat disentuh kursor
+    let reason = `Panjang kalimat: ${wordCount} kata.`;
+    if (foundKeywords.length > 0) {
+      reason += ` Mengandung kata kunci AI: [${foundKeywords.join(", ")}].`;
+    }
+
+    return {
+      score: Math.min(100, totalScore), // Batasi maksimal 100%
+      reason
+    };
+  };
+
+  // ==============================================================================
+  // INTERACTIVE TEXT HIGHLIGHTER PARSER (DENGAN TINGKAT MERAH BERTAHAP)
+  // ==============================================================================
   const renderHighlightedText = () => {
     if (!text) return null;
     
     // Pecah teks menjadi baris kalimat berdasarkan tanda baca (. ! ?) diikuti spasi
     const sentences = text.split(/(?<=[.!?])\s+/);
-    const aiKeywords = ["komprehensif", "signifikan", "optimal", "fundamentalis", "sehingga", "oleh karena itu", "efisiensi", "integrasi", "transparansi", "fleksibilitas"];
 
     return sentences.map((sentence, idx) => {
       const trimmedSent = sentence.trim();
       if (!trimmedSent) return null;
 
-      const wordsInSent = trimmedSent.split(/\s+/).length;
+      // Hitung skor kecurigaan untuk kalimat ini
+      const { score, reason } = getSentenceSuspicion(trimmedSent);
       
-      // Kriteria Kalimat Indikasi AI:
-      // 1. Mengandung kata kunci indikator AI (TF-IDF Clues)
-      // 2. ATAU panjang kalimat berada di rentang monoton mesin (antara 8 sampai 16 kata)
-      const hasAiKeyword = aiKeywords.some(word => trimmedSent.toLowerCase().includes(word));
-      const isMonotonousLength = wordsInSent >= 8 && wordsInSent <= 16;
+      // Tentukan warna merah bertahap berdasarkan % Kecurigaan (Tailwind Opacity)
+      let highlightClass = "text-slate-700";
       
-      const isSuspicious = enableHighlight && (hasAiKeyword || isMonotonousLength);
+      if (enableHighlight && score >= 35) {
+        if (score >= 85) {
+          // Sangat Tinggi (Merah Tebal)
+          highlightClass = "bg-rose-500/50 text-rose-950 font-bold border-b-2 border-rose-400";
+        } else if (score >= 65) {
+          // Tinggi (Merah Sedang)
+          highlightClass = "bg-rose-500/30 text-rose-900 border-b border-rose-300";
+        } else if (score >= 45) {
+          // Sedang (Merah Muda)
+          highlightClass = "bg-rose-500/15 text-slate-800 border-b border-rose-200";
+        } else {
+          // Rendah (Merah Transparan Tipis)
+          highlightClass = "bg-rose-500/7 text-slate-700";
+        }
+      }
 
       return (
         <span 
           key={idx} 
-          className={`transition-all duration-350 mr-1.5 leading-relaxed rounded ${
-            isSuspicious 
-              ? "bg-rose-100/80 border-b border-rose-300 text-rose-950 cursor-help" 
-              : "text-slate-700"
+          className={`transition-all duration-300 mr-1.5 leading-relaxed rounded px-0.5 ${highlightClass} ${
+            enableHighlight && score >= 35 ? "cursor-help" : ""
           }`}
-          title={isSuspicious ? `Indikasi AI: Kalimat ini memiliki struktur monoton (${wordsInSent} kata) atau menggunakan kosakata formal.` : undefined}
+          // Tooltip interaktif yang menampilkan % dan alasan secara detail
+          title={enableHighlight && score >= 35 ? `Tingkat Kecurigaan: ${score.toFixed(0)}% (${reason})` : undefined}
         >
           {sentence}{" "}
         </span>
@@ -538,8 +590,8 @@ export default function DashboardPage() {
                               style={{ left: `${Math.min(100, (currentAvgSentLen / 30) * 100)}%` }}
                             />
                           </div>
-                          <p className={`text-[10px] italic leading-tight ${currentAvgSentLen >= 18 ? "text-emerald-600" : "text-rose-500"}`}>
-                            * {sentLenDiag}
+                          <p className={`text-[10px] leading-tight ${currentAvgSentLen >= 18 ? "text-emerald-600" : "text-rose-500"}`}>
+                            {sentLenDiag}
                           </p>
                         </div>
 
@@ -557,8 +609,8 @@ export default function DashboardPage() {
                               style={{ left: `${currentLexDiv}%` }}
                             />
                           </div>
-                          <p className={`text-[10px] italic leading-tight ${currentLexDiv >= 75 ? "text-emerald-600" : "text-rose-500"}`}>
-                            * {lexDivDiag}
+                          <p className={`text-[10px] leading-tight ${currentLexDiv >= 75 ? "text-emerald-600" : "text-rose-500"}`}>
+                            {lexDivDiag}
                           </p>
                         </div>
 
@@ -576,8 +628,8 @@ export default function DashboardPage() {
                               style={{ left: `${Math.min(100, (currentPunctDens / 10) * 100)}%` }}
                             />
                           </div>
-                          <p className={`text-[10px] italic leading-tight ${currentPunctDens >= 4.5 ? "text-emerald-700" : "text-rose-600"}`}>
-                            * {punctDensDiag}
+                          <p className={`text-[10px] leading-tight ${currentPunctDens >= 4.5 ? "text-emerald-700" : "text-rose-600"}`}>
+                            {punctDensDiag}
                           </p>
                         </div>
                       </div>
@@ -609,7 +661,7 @@ export default function DashboardPage() {
                         <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl text-[10px] text-slate-400 leading-relaxed space-y-1">
                           <p className="font-bold text-slate-600 uppercase tracking-wider text-[9px]">📊 Bagaimana TF-IDF Menilai Ini?</p>
                           <p>
-                            Sistem mengalikan frekuensi kata pada dokumen ini (**Term Frequency**) dengan tingkat keunikan kata tersebut pada basis data master (**Inverse Document Frequency**) [2]. Kata di atas disorot karena secara statistik merupakan kosakata favorit yang sering diekstrak oleh model Gemma 4 dibanding data pembanding manusia [1, 2].
+                            Sistem mengalikan frekuensi kata pada dokumen ini (Term Frequency) dengan tingkat keunikan kata tersebut pada basis data master (Inverse Document Frequency). Kata di atas disorot karena secara statistik merupakan kosakata favorit yang sering diekstrak oleh model Gemma 4 dibanding data pembanding manusia.
                           </p>
                         </div>
                       </div>
