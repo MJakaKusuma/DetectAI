@@ -257,18 +257,6 @@ export default function AdminPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 space-y-10 min-h-[75vh]">
-      {/* Header */}
-     <div className="mb-8 animate-fade-in">
-      <div className="flex items-center gap-2.5">
-        <span className="text-2xl">🛠️</span>
-        <h1 className="text-3xl font-black text-slate-800 tracking-tight">Administrator Panel</h1>
-      </div>
-      <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
-        Pusat kendali MLOps: Lakukan retraining model, kelola repositori data latih, dan lakukan audit umpan balik dari pengguna.
-      </p>
-    </div>
-
-
       {/* Tab Navigation */}
       <div className="flex border-b border-slate-200 gap-6 overflow-x-auto whitespace-nowrap pb-1">
         <button onClick={() => handleTabChange("dashboard")} className={`pb-3 text-sm font-bold border-b-2 transition-all ${activeTab === "dashboard" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-400"}`}>📊 Ringkasan Dashboard</button>
