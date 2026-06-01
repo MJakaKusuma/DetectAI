@@ -102,6 +102,7 @@ export default function DashboardPage() {
     setResult(null);
     setShowFeedbackForm(false);
     setShowDetails(false);
+    setResultTab("overview");
     setDetectedAiWords([]);
 
     const token = localStorage.getItem("token");
@@ -183,28 +184,22 @@ export default function DashboardPage() {
     const isLexDivHuman = currentLexDiv >= 75;
     const isPunctHuman = currentPunctDens >= 4.5;
     
-    // Hitung berapa banyak indikator stilometri yang bernilai hijau (Gaya Manusia)
     const humanStyleScore = (isSentLenHuman ? 1 : 0) + (isLexDivHuman ? 1 : 0) + (isPunctHuman ? 1 : 0);
 
     if (isAI) {
       if (humanStyleScore >= 2) {
-        // Kasus Screenshot Kanan: Tebak AI, tapi gaya penulisan sangat kaya (hijau)
         return `Model mendeteksi teks ini sebagai buatan AI terutama didorong oleh pengaruh kuat pembobotan kata leksikal (TF-IDF). Meskipun struktur gaya bahasa Anda (seperti panjang kalimat dan kekayaan kata) secara statistik menunjukkan karakteristik alami manusia, penggunaan kata-kata kunci formal khas mesin tetap mengarahkan model pada klasifikasi AI.`;
       } else {
-        // Kasus AI standar: Tebak AI, dan gaya memang monoton (merah)
         return `Model mendeteksi teks ini sebagai buatan AI karena struktur kalimat yang sangat seragam (${result.stylometry.avg_sent_len}) dan keterbatasan variasi kosa kata (${result.stylometry.lex_div}). Pola monoton ini dikombinasikan dengan kemunculan kata kunci formal khas mesin.`;
       }
     } else {
       if (humanStyleScore <= 1) {
-        // Kasus Screenshot Kiri: Tebak Manusia, tapi gaya penulisan monoton (merah)
         return `Model mendeteksi teks ini sebagai tulisan manusia terutama didorong oleh tidak adanya pola kosa kata khas mesin pada fitur TF-IDF. Meskipun struktur gaya bahasa Anda secara statistik menyerupai pola monoton AI (kalimat cenderung pendek dan kosa kata berulang), kealamian pemilihan kata-kata tetap mengarahkan klasifikasi akhir pada manusia.`;
       } else {
-        // Kasus Manusia standar: Tebak Manusia, dan gaya memang dinamis (hijau)
         return `Model mendeteksi teks ini sebagai tulisan manusia karena didukung oleh dinamika struktur penulisan yang kaya. Panjang kalimat rata-rata berada pada rentang ideal manusia (${result.stylometry.avg_sent_len}) dengan struktur yang dinamis, menunjukkan variabilitas alami yang sulit ditiru mesin.`;
       }
     }
   };
-
 
   const totalScans = history.length;
   const aiScans = history.filter(h => h.prediction_result === "AI").length;
@@ -217,9 +212,6 @@ export default function DashboardPage() {
   const totalHistoryPages = Math.ceil(history.length / ROWS_PER_PAGE);
 
   // ==============================================================================
-  // INTERACTIVE TEXT HIGHLIGHTER PARSER (Mengidentifikasi Kalimat Indikasi AI)
-  // ==============================================================================
-  // ==============================================================================
   // ALGORITMA CERDAS: MENGHITUNG PERSENTASE KECURIGAAN PER KALIMAT (XAI SCORER)
   // ==============================================================================
   const getSentenceSuspicion = (sentence: string) => {
@@ -231,7 +223,6 @@ export default function DashboardPage() {
     
     const aiKeywords = ["komprehensif", "signifikan", "optimal", "fundamentalis", "sehingga", "oleh karena itu", "efisiensi", "integrasi", "transparansi", "fleksibilitas"];
     
-    // A. Hitung Bobot Leksikal (Maksimal 50% - Deteksi TF-IDF)
     const foundKeywords = aiKeywords.filter(word => trimmed.toLowerCase().includes(word));
     let lexicalScore = 0;
     if (foundKeywords.length === 1) {
@@ -240,20 +231,16 @@ export default function DashboardPage() {
       lexicalScore = 50;
     }
 
-    // B. Hitung Bobot Stilometrik (Maksimal 50% - Deteksi Monoton Kalimat)
-    // Panjang ideal kalimat AI adalah 13 kata. Semakin mendekati 13, nilai semakin tinggi.
     const lengthScore = Math.max(0, 50 - Math.abs(wordCount - 13) * 5);
-
     const totalScore = lexicalScore + lengthScore;
     
-    // Susun alasan penjelasan untuk tooltip saat disentuh kursor
     let reason = `Panjang kalimat: ${wordCount} kata.`;
     if (foundKeywords.length > 0) {
       reason += ` Mengandung kata kunci AI: [${foundKeywords.join(", ")}].`;
     }
 
     return {
-      score: Math.min(100, totalScore), // Batasi maksimal 100%
+      score: Math.min(100, totalScore),
       reason
     };
   };
@@ -264,31 +251,23 @@ export default function DashboardPage() {
   const renderHighlightedText = () => {
     if (!text) return null;
     
-    // Pecah teks menjadi baris kalimat berdasarkan tanda baca (. ! ?) diikuti spasi
     const sentences = text.split(/(?<=[.!?])\s+/);
 
     return sentences.map((sentence, idx) => {
       const trimmedSent = sentence.trim();
       if (!trimmedSent) return null;
 
-      // Hitung skor kecurigaan untuk kalimat ini
       const { score, reason } = getSentenceSuspicion(trimmedSent);
-      
-      // Tentukan warna merah bertahap berdasarkan % Kecurigaan (Tailwind Opacity)
       let highlightClass = "text-slate-700";
       
       if (enableHighlight && score >= 35) {
         if (score >= 85) {
-          // Sangat Tinggi (Merah Tebal)
-          highlightClass = "bg-rose-500/50 text-rose-950 font-bold border-b-2 border-rose-400";
+          highlightClass = "bg-rose-500/50 text-rose-950 font-bold border-b-2 border-rose-400/80";
         } else if (score >= 65) {
-          // Tinggi (Merah Sedang)
-          highlightClass = "bg-rose-500/30 text-rose-900 border-b border-rose-300";
+          highlightClass = "bg-rose-500/30 text-rose-900 border-b border-rose-300/60";
         } else if (score >= 45) {
-          // Sedang (Merah Muda)
-          highlightClass = "bg-rose-500/15 text-slate-800 border-b border-rose-200";
+          highlightClass = "bg-rose-500/15 text-slate-850 border-b border-rose-200/50";
         } else {
-          // Rendah (Merah Transparan Tipis)
           highlightClass = "bg-rose-500/7 text-slate-700";
         }
       }
@@ -299,7 +278,6 @@ export default function DashboardPage() {
           className={`transition-all duration-300 mr-1.5 leading-relaxed rounded px-0.5 ${highlightClass} ${
             enableHighlight && score >= 35 ? "cursor-help" : ""
           }`}
-          // Tooltip interaktif yang menampilkan % dan alasan secara detail
           title={enableHighlight && score >= 35 ? `Tingkat Kecurigaan: ${score.toFixed(0)}% (${reason})` : undefined}
         >
           {sentence}{" "}
@@ -312,7 +290,7 @@ export default function DashboardPage() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12 min-h-[calc(100vh-16rem)]">
       
       {/* ============================================================================== */}
-      {/* A. LAYOUT KHUSUS PRINT PDF */}
+      {/* A. LAYOUT KHUSUS PRINT PDF (Hanya Muncul Saat Dicetak) */}
       {/* ============================================================================== */}
       {result && (
         <div className="hidden print:block w-full max-w-4xl mx-auto p-12 bg-white text-slate-900 font-sans border border-slate-200 rounded-lg">
@@ -537,6 +515,35 @@ export default function DashboardPage() {
                     {/* TAB 1: OVERVIEW */}
                     {resultTab === "overview" && (
                       <div className="space-y-4 animate-fade-in">
+                        
+                        {/* ILUSTRASI VISUAL DETAIL (Robot untuk AI, Pena untuk Human) */}
+                        <div className="flex justify-center pt-2">
+                          {result.prediction === "AI" ? (
+                            // Ilustrasi Kepala Robot Sirkuit Futuristik (Rose Theme)
+                            <svg width="100" height="100" viewBox="0 0 100 100" fill="none" className="animate-bounce [animation-duration:3s]">
+                              <rect x="25" y="25" width="50" height="44" rx="12" fill="#fff1f2" stroke="#f43f5e" strokeWidth="4" />
+                              <path d="M35,69 V77 M65,69 V77" stroke="#f43f5e" strokeWidth="4" strokeLinecap="round" />
+                              <rect x="40" y="77" width="20" height="6" rx="3" fill="#f43f5e" />
+                              <path d="M50,25 V13 M46,13 H54" stroke="#f43f5e" strokeWidth="3" strokeLinecap="round" />
+                              <circle cx="50" cy="10" r="4" fill="#f43f5e" />
+                              <circle cx="40" cy="42" r="5" fill="#f43f5e" className="animate-pulse" />
+                              <circle cx="60" cy="42" r="5" fill="#f43f5e" className="animate-pulse" />
+                              <path d="M42,56 Q50,62 58,56" stroke="#f43f5e" strokeWidth="3.5" strokeLinecap="round" />
+                            </svg>
+                          ) : (
+                            // Ilustrasi Pena Bulu Klasik & Botol Tinta (Emerald Theme)
+                            <svg width="100" height="100" viewBox="0 0 100 100" fill="none" className="animate-bounce [animation-duration:3s]">
+                              <rect x="25" y="55" width="24" height="24" rx="6" fill="#ecfdf5" stroke="#10b981" strokeWidth="4" />
+                              <rect x="31" y="47" width="12" height="8" rx="2" fill="#10b981" />
+                              <path d="M68,16 C68,16 63,32 50,45 C42,53 38,62 36,70" stroke="#10b981" strokeWidth="4" strokeLinecap="round" />
+                              <path d="M50,45 L32,63 L28,74 L39,70 L57,52 Z" fill="#ecfdf5" stroke="#10b981" strokeWidth="3.5" />
+                              <line x1="56" y1="24" x2="62" y2="20" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" />
+                              <line x1="48" y1="32" x2="55" y2="27" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" />
+                              <line x1="41" y1="41" x2="48" y2="35" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" />
+                            </svg>
+                          )}
+                        </div>
+
                         {/* Hasil Utama */}
                         <div className="text-center py-1">
                           <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
@@ -590,7 +597,7 @@ export default function DashboardPage() {
                               style={{ left: `${Math.min(100, (currentAvgSentLen / 30) * 100)}%` }}
                             />
                           </div>
-                          <p className={`text-[10px] leading-tight ${currentAvgSentLen >= 18 ? "text-emerald-600" : "text-rose-500"}`}>
+                          <p className={`text-[10px] leading-tight px-2.5 py-1 rounded-md bg-slate-50 border border-slate-100 ${currentAvgSentLen >= 18 ? "text-emerald-700" : "text-rose-600"}`}>
                             {sentLenDiag}
                           </p>
                         </div>
@@ -609,7 +616,7 @@ export default function DashboardPage() {
                               style={{ left: `${currentLexDiv}%` }}
                             />
                           </div>
-                          <p className={`text-[10px] leading-tight ${currentLexDiv >= 75 ? "text-emerald-600" : "text-rose-500"}`}>
+                          <p className={`text-[10px] leading-tight px-2.5 py-1 rounded-md bg-slate-50 border border-slate-100 ${currentLexDiv >= 75 ? "text-emerald-700" : "text-rose-600"}`}>
                             {lexDivDiag}
                           </p>
                         </div>
@@ -628,7 +635,7 @@ export default function DashboardPage() {
                               style={{ left: `${Math.min(100, (currentPunctDens / 10) * 100)}%` }}
                             />
                           </div>
-                          <p className={`text-[10px] leading-tight ${currentPunctDens >= 4.5 ? "text-emerald-700" : "text-rose-600"}`}>
+                          <p className={`text-[10px] leading-tight px-2.5 py-1 rounded-md bg-slate-50 border border-slate-100 ${currentPunctDens >= 4.5 ? "text-emerald-700" : "text-rose-600"}`}>
                             {punctDensDiag}
                           </p>
                         </div>
@@ -730,16 +737,79 @@ export default function DashboardPage() {
 
                   </div>
                 ) : (
-                  <div className="text-center py-20 text-slate-400">
-                    <p className="text-xs">Hasil analisis diagnostik struktur kalimat akan ditampilkan di sini.</p>
+                  // SESUDAH (Mewujudkan Visualisasi Isometrik Scanner Machine Canggih)
+                  <div className="text-center py-10 text-slate-400 space-y-6 flex flex-col items-center justify-center min-h-[300px] animate-fade-in">
+                    
+                    {/* ILUSTRASI VEKTOR ISOMETRIK SCANNER (100% NATIVE SVG) */}
+                    <svg width="200" height="180" viewBox="0 0 200 180" fill="none" className="mx-auto">
+                      {/* Grid Network Latar Belakang */}
+                      <path d="M20,90 L100,50 L180,90 L100,130 Z" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3,3" />
+                      <path d="M40,90 L100,60 L160,90 L100,120 Z" stroke="#e2e8f0" strokeWidth="1" />
+                      
+                      {/* Dudukan Isometrik (Mesin Scanner) */}
+                      <path d="M50,110 L100,85 L150,110 L100,135 Z" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="2" />
+                      <path d="M50,110 V120 L100,145 V135 Z" fill="#f1f5f9" stroke="#cbd5e1" strokeWidth="2" />
+                      <path d="M150,110 V120 L100,145 V135 Z" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="2" />
+                      
+                      {/* Dokumen yang Melayang (Melakukan Gerakan Memantul Lambat) */}
+                      <g className="animate-bounce [animation-duration:4s]">
+                        <path d="M70,80 L110,60 L140,75 L100,95 Z" fill="#ffffff" stroke="#94a3b8" strokeWidth="1.5" />
+                        {/* Garis-Garis Tulisan di Kertas */}
+                        <line x1="85" y1="75" x2="115" y2="60" stroke="#e2e8f0" strokeWidth="2" strokeLinecap="round" />
+                        <line x1="90" y1="82" x2="125" y2="65" stroke="#e2e8f0" strokeWidth="2" strokeLinecap="round" />
+                        <line x1="95" y1="89" x2="115" y2="79" stroke="#e2e8f0" strokeWidth="2" strokeLinecap="round" />
+                      </g>
+
+                      {/* Sinar Laser Pemindai Holografik (Berdenyut/Pulse) */}
+                      <g className="animate-pulse">
+                        {/* Pancaran Sinar Kerucut */}
+                        <path d="M100,35 L70,80 L100,95 Z" fill="url(#laser-cone-left)" opacity="0.15" />
+                        <path d="M100,35 L140,75 L100,95 Z" fill="url(#laser-cone-right)" opacity="0.15" />
+                        
+                        {/* Garis Pancaran Utama */}
+                        <path d="M100,35 L70,80" stroke="url(#laser-line)" strokeWidth="1.5" opacity="0.5" />
+                        <path d="M100,35 L140,75" stroke="url(#laser-line)" strokeWidth="1.5" opacity="0.5" />
+                        <path d="M100,35 L100,95" stroke="url(#laser-line)" strokeWidth="1.5" opacity="0.5" />
+                        
+                        {/* Pemancar Sinar Di Atas */}
+                        <circle cx="100" cy="35" r="5" fill="#6366f1" />
+                        <circle cx="100" cy="35" r="9" stroke="#6366f1" strokeWidth="1" className="animate-ping" />
+                      </g>
+
+                      {/* Gradasi Warna Laser */}
+                      <defs>
+                        <linearGradient id="laser-line" x1="100" y1="35" x2="100" y2="95">
+                          <stop offset="0%" stopColor="#6366f1" />
+                          <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
+                        </linearGradient>
+                        <linearGradient id="laser-cone-left" x1="100" y1="35" x2="70" y2="80">
+                          <stop offset="0%" stopColor="#818cf8" stopOpacity="1" />
+                          <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+                        </linearGradient>
+                        <linearGradient id="laser-cone-right" x1="100" y1="35" x2="140" y2="75">
+                          <stop offset="0%" stopColor="#818cf8" stopOpacity="1" />
+                          <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+                        </linearGradient>
+                      </defs>
+                    </svg>
+
+                    <div className="space-y-1">
+                      <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Detektor Siap Digunakan</h4>
+                      <p className="text-[10px] text-slate-400 leading-relaxed max-w-[200px] mx-auto">
+                        Tempel artikel Anda di kotak kiri, lalu klik eksekusi untuk memulai pemindaian stilometri.
+                      </p>
+                    </div>
+
                   </div>
                 )}
               </div>
             </div>
           </div>
-        )}
+          )} {/* Menutup rute tab "analyzer" */}
 
-        {/* 2. TAB RIWAYAT */}
+        {/* ============================================================================== */}
+        {/* 2. TAB RIWAYAT (TABEL RESPONSIF SEPENUHNYA - BEBAS/ANTI-MEPET DI HP) */}
+        {/* ============================================================================== */}
         {activeTab === "history" && (
           <div className="bg-white border border-slate-200/60 rounded-2xl p-4 sm:p-6 shadow-sm overflow-hidden animate-fade-in flex flex-col justify-between min-h-100">
             <div>
@@ -747,7 +817,9 @@ export default function DashboardPage() {
               {history.length === 0 ? (
                 <div className="text-center py-12 text-slate-400 text-sm">Belum ada riwayat pengujian yang tercatat.</div>
               ) : (
+                /* SOLUSI MOBILE: Gunakan -mx-4 sm:-mx-6 & px-4 sm:px-6 untuk jarak tepi yang seimbang */
                 <div className="overflow-x-auto -mx-4 sm:-mx-6 px-4 sm:px-6">
+                  {/* Gunakan min-w-175 (700px) agar kolom memiliki ruang gerak yang luas saat digeser di HP */}
                   <table className="w-full text-left text-sm text-slate-600 min-w-175">
                     <thead>
                       <tr className="border-b border-slate-100 text-slate-400 text-xs font-bold uppercase tracking-wider">
@@ -761,6 +833,7 @@ export default function DashboardPage() {
                       {currentHistoryRows.map((item) => (
                         <tr key={item.id} className="hover:bg-slate-50/50">
                           <td className="py-4 text-xs font-medium text-slate-400 whitespace-nowrap pl-2">{item.created_at}</td>
+                          {/* Sembunyikan nama dengan batas max-w-[150px] agar tidak menekan kolom lain di HP */}
                           <td className="py-4 font-medium text-slate-700 max-w-[150px] sm:max-w-xs truncate" title={item.input_text}>
                             {item.input_text}
                           </td>
@@ -790,14 +863,14 @@ export default function DashboardPage() {
                   <button 
                     onClick={() => setHistoryPage(prev => Math.max(prev - 1, 1))} 
                     disabled={historyPage === 1}
-                    className="px-3 py-1.5 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-3 py-1.5 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 font-bold transition-all disabled:opacity-50"
                   >
                     Prev
                   </button>
                   <button 
                     onClick={() => setHistoryPage(prev => Math.min(prev + 1, totalHistoryPages))} 
                     disabled={historyPage === totalHistoryPages}
-                    className="px-3 py-1.5 bg-slate-900 text-white rounded-lg font-bold hover:bg-slate-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-3 py-1.5 bg-slate-900 text-white rounded-lg font-bold hover:bg-slate-800 transition-all disabled:opacity-50"
                   >
                     Next
                   </button>
@@ -807,7 +880,9 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* 3. TAB STATISTICS */}
+        {/* ============================================================================== */}
+        {/* 3. TAB STATISTICS (DENGAN VISUALISASI GRAFIK BAR & DONUT LENGKAP) */}
+        {/* ============================================================================== */}
         {activeTab === "stats" && (() => {
           const totalPredictions = history.length;
           const aiScansCount = history.filter(h => h.prediction_result === "AI").length;
