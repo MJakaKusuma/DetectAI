@@ -701,60 +701,80 @@ export default function DashboardPage() {
                     {/* ============================================================================== */}
                     {/* TAB 3: KOSAKATA (TF-IDF CLUES & MATH EXPLANATION) — VERSI RESPONSIF DAN RAPI */}
                     {/* ============================================================================== */}
+                    {/* ============================================================================== */}
+                    {/* TAB 3: KOSAKATA (TF-IDF CLUES) — GRID 2 KOLOM DENGAN KOEFISIEN & EDUKASI LENGKAP */}
+                    {/* ============================================================================== */}
                     {resultTab === "tfidf" && (
                       <div className="space-y-4 animate-fade-in">
                         {detectedAiWords.length > 0 ? (
                           <div className="space-y-3">
-                            <div className="space-y-0.5">
+                            <div className="space-y-0.5 text-left">
                               <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Leksikal Analisis (TF-IDF Clues):</h4>
-                              <p className="text-[9px] text-slate-400">Pola kosakata mesin yang terdeteksi di dalam dokumen Anda:</p>
+                              <p className="text-[9px] text-slate-400">Kosakata penanda mesin yang terdeteksi di dalam dokumen Anda:</p>
                             </div>
                             
-                            {/* SOLUSI BEBAS GEPLAK: Gunakan grid-cols-1 untuk ruang horizontal yang luas */}
-                            <div className="grid grid-cols-1 gap-2.5 pt-1">
+                            {/* GRID 2 KOLOM (Bebas tabrakan karena disusun secara vertikal) */}
+                            <div className="grid grid-cols-3 gap-3 pt-1">
                               {detectedAiWords.map((item, idx) => {
                                 // Cari indeks asli untuk menentukan peringkat signifikansi
                                 const originalIndex = result.ai_keywords.findIndex(kw => kw.word === item.word);
                                 
-                                let badgeText = "Low TF-IDF";
-                                let cardClass = "bg-slate-50/50 border-slate-150 border-l-slate-400";
-                                let badgeClass = "bg-slate-100 text-slate-400";
-                                let textClass = "text-slate-700";
+                                let badgeText = "Low";
+                                let shortBadgeText = "LOW";
+                                let cardClass = "bg-slate-50/30 border-slate-200/40 hover:bg-slate-100/50";
+                                let badgeTextClass = "text-slate-400";
+                                let dotClass = "bg-slate-300";
+                                let textClass = "text-slate-500";
 
                                 if (originalIndex < 5) {
-                                  // Top 5: High Impact (Merah)
-                                  badgeText = "High TF-IDF";
-                                  cardClass = "bg-rose-50/50 border-rose-100/40 border-l-rose-500 hover:bg-rose-50";
-                                  badgeClass = "bg-rose-100/50 text-rose-500";
+                                  // Top 1-5: High Impact (Merah)
+                                  badgeText = "High TF-IDF (Sangat Kuat)";
+                                  shortBadgeText = "HIGH";
+                                  cardClass = "bg-rose-50/20 border-rose-100/40 hover:bg-rose-50/50";
+                                  badgeTextClass = "text-rose-500";
+                                  dotClass = "bg-rose-500";
                                   textClass = "text-rose-700";
                                 } else if (originalIndex < 10) {
-                                  // 6-10: Medium Impact (Oranye/Amber)
-                                  badgeText = "Med TF-IDF";
-                                  cardClass = "bg-amber-50/50 border-amber-100/40 border-l-amber-500 hover:bg-amber-50";
-                                  badgeClass = "bg-amber-100/50 text-amber-500";
+                                  // Top 6-10: Medium Impact (Oranye)
+                                  badgeText = "Medium TF-IDF (Sedang)";
+                                  shortBadgeText = "MED";
+                                  cardClass = "bg-amber-50/20 border-amber-100/40 hover:bg-amber-50/50";
+                                  badgeTextClass = "text-amber-500";
+                                  dotClass = "bg-amber-500";
                                   textClass = "text-amber-700";
                                 } else {
-                                  // 11-15: Low Impact (Abu-abu/Slate)
-                                  badgeText = "Low TF-IDF";
-                                  cardClass = "bg-slate-50/50 border-slate-200/40 border-l-slate-400 hover:bg-slate-100/50";
-                                  badgeClass = "bg-slate-100 text-slate-400";
-                                  textClass = "text-slate-500";
+                                  // Top 11-15: Low Impact (Abu-abu)
+                                  badgeText = "Low TF-IDF (Ringan)";
+                                  shortBadgeText = "LOW";
+                                  cardClass = "bg-slate-50/30 border-slate-200/40 hover:bg-slate-100/50";
+                                  badgeTextClass = "text-slate-400";
+                                  dotClass = "bg-slate-300";
+                                  textClass = "text-slate-400";
                                 }
 
                                 return (
-                                  /* Desain Premium dengan garis tebal di kiri (border-l-4) dan info koefisien */
+                                  /* Desain Kapsul Sensor Tinggi Tetap (h-22) dengan Garis Sisi Kiri (border-l-4) */
                                   <div 
                                     key={idx} 
-                                    className={`flex items-center justify-between px-4 py-3 border border-l-4 rounded-r-xl rounded-l-md transition-all shadow-xs ${cardClass}`}
-                                    title={`Kata "${item.word}" memiliki nilai koefisien model sebesar ${item.weight.toFixed(4)}.`}
+                                    className={`flex flex-col justify-between p-3 border border-l-4 rounded-r-xl rounded-l-md transition-all shadow-xs h-22 ${cardClass}`}
+                                    title={`Kata "${item.word}" memiliki nilai koefisien model sebesar ${item.weight.toFixed(4)}. (${badgeText})`}
                                   >
-                                    <div className="flex flex-col text-left">
-                                      <span className={`text-xs font-extrabold uppercase tracking-wider ${textClass}`}>{item.word}</span>
-                                      <span className="text-[9px] text-slate-400 mt-0.5 font-medium">Koefisien Bobot: {item.weight.toFixed(3)}</span>
+                                    {/* Baris Atas: Kata & Sensor Glow Bulat */}
+                                    <div className="flex justify-between items-center w-full">
+                                      <span className={`text-xs font-black uppercase tracking-wider truncate max-w-[80px] sm:max-w-[100px] ${textClass}`}>
+                                        {item.word}
+                                      </span>
+                                      {/* Titik sensor berdenyut */}
+                                      <span className={`w-2 h-2 rounded-full ${dotClass} animate-pulse`} />
                                     </div>
-                                    <span className={`text-[8px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider whitespace-nowrap ${badgeClass}`}>
-                                      {badgeText}
-                                    </span>
+
+                                    {/* Baris Bawah: Koefisien Asli & Label Singkat */}
+                                    <div className="flex justify-between items-center w-full pt-1.5 border-t border-slate-100/60 text-[9px] text-slate-400 font-bold">
+                                      <span>Coeff: {item.weight.toFixed(2)}</span>
+                                      <span className={`tracking-wider ${badgeTextClass}`}>
+                                        {shortBadgeText}
+                                      </span>
+                                    </div>
                                   </div>
                                 );
                               })}
@@ -790,6 +810,7 @@ export default function DashboardPage() {
                             </p>
                           </div>
                         </div>
+
                       </div>
                     )}
 
