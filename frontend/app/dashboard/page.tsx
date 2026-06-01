@@ -18,6 +18,7 @@ interface PredictionResponse {
   confidence: string;
   prediction_id: number;
   stylometry: StylometryData;
+  ai_keywords: string[]; 
 }
 
 interface HistoryItem {
@@ -115,7 +116,7 @@ export default function DashboardPage() {
       const data = await apiRequest<PredictionResponse>("/predict", "POST", { text }, token);
       setResult(data);
       
-      const aiKeywords = ["komprehensif", "signifikan", "optimal", "fundamentalis", "sehingga", "oleh karena itu", "efisiensi", "integrasi", "transparansi", "fleksibilitas"];
+      const aiKeywords = data.ai_keywords;
       const foundWords = aiKeywords.filter(word => text.toLowerCase().includes(word));
       setDetectedAiWords(foundWords);
 
@@ -218,15 +219,17 @@ export default function DashboardPage() {
   // ==============================================================================
   // ALGORITMA CERDAS: MENGHITUNG PERSENTASE KECURIGAAN PER KALIMAT (XAI SCORER)
   // ==============================================================================
-  const getSentenceSuspicion = (sentence: string) => {
+  // ==============================================================================
+  // ALGORITMA CERDAS: MENGHITUNG PERSENTASE KECURIGAAN PER KALIMAT (DINAMIS DARI BACKEND)
+  // ==============================================================================
+  const getSentenceSuspicion = (sentence: string, aiKeywords: string[]) => {
     const trimmed = sentence.trim();
     if (!trimmed) return { score: 0, reason: "" };
 
     const words = trimmed.split(/\s+/);
     const wordCount = words.length;
     
-    const aiKeywords = ["komprehensif", "signifikan", "optimal", "fundamentalis", "sehingga", "oleh karena itu", "efisiensi", "integrasi", "transparansi", "fleksibilitas"];
-    
+    // A. Hitung Bobot Leksikal (Menggunakan kata kunci dinamis hasil kiriman API /predict)
     const foundKeywords = aiKeywords.filter(word => trimmed.toLowerCase().includes(word));
     let lexicalScore = 0;
     if (foundKeywords.length === 1) {
@@ -235,6 +238,7 @@ export default function DashboardPage() {
       lexicalScore = 50;
     }
 
+    // B. Hitung Bobot Stilometrik
     const lengthScore = Math.max(0, 50 - Math.abs(wordCount - 13) * 5);
     const totalScore = lexicalScore + lengthScore;
     
@@ -250,18 +254,23 @@ export default function DashboardPage() {
   };
 
   // ==============================================================================
-  // INTERACTIVE TEXT HIGHLIGHTER PARSER (DENGAN TINGKAT MERAH BERTAHAP)
+  // INTERACTIVE TEXT HIGHLIGHTER PARSER (MEMBACA DATA DARI RESULT API)
   // ==============================================================================
   const renderHighlightedText = () => {
     if (!text) return null;
     
     const sentences = text.split(/(?<=[.!?])\s+/);
+    
+    // Gunakan daftar kata dinamis dari backend, jika belum ada gunakan fallback kosong []
+    const activeKeywords = result ? result.ai_keywords : [];
 
     return sentences.map((sentence, idx) => {
       const trimmedSent = sentence.trim();
       if (!trimmedSent) return null;
 
-      const { score, reason } = getSentenceSuspicion(trimmedSent);
+      // Masukkan kata kunci dinamis ke fungsi scorer
+      const { score, reason } = getSentenceSuspicion(trimmedSent, activeKeywords);
+      
       let highlightClass = "text-slate-700";
       
       if (enableHighlight && score >= 35) {

@@ -70,7 +70,7 @@ def update_global_ai_keywords():
     except Exception as e:
         print(f"\n[XAI Warning] Gagal mengekstrak kata kunci dinamis: {e}. Menggunakan fallback.")
         # Cadangan kosakata jika model belum memiliki koefisien
-        global_ai_keywords = ["komprehensif", "signifikan", "optimal", "fundamentalis", "sehingga", "oleh karena itu", "efisiensi", "integrasi", "transparansi", "fleksibilitas"]
+        # global_ai_keywords = ["komprehensif", "signifikan", "optimal", "fundamentalis", "sehingga", "oleh karena itu", "efisiensi", "integrasi", "transparansi", "fleksibilitas"]
 
 # LOAD MODELS (DENGAN RE-CALCULATION KATA KUNCI)
 try:
