@@ -548,20 +548,47 @@ export default function DashboardPage() {
                         </div>
 
                         {/* Pemindai Kata Kunci AI (TF-IDF) */}
+                        {/* SESUDAH (Ubah Menjadi Analisis Leksikal TF-IDF Ultra Informatif) */}
                         {detectedAiWords.length > 0 && (
-                          <div className="space-y-2">
+                          <div className="pt-4 border-t border-slate-100 space-y-3.5">
+                            
+                            {/* Header & Deskripsi */}
                             <div className="space-y-0.5">
-                              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Bobot Kosakata Mesin (TF-IDF):</h4>
-                              <p className="text-[9px] text-slate-400">Kata di bawah ini menyumbang bobot tinggi ke arah klasifikasi AI pada dataset.</p>
+                              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Analisis Leksikal (TF-IDF Clues):</h4>
+                              <p className="text-[9px] text-slate-400 leading-relaxed">
+                                Metode TF-IDF mendeteksi kosakata di bawah ini memiliki bobot asosiasi mesin (AI-favored weight) yang tinggi berdasarkan korpus basis data latihan kita.
+                              </p>
                             </div>
-                            <div className="flex flex-wrap gap-1.5 pt-1">
+                            
+                            {/* Tampilan Grid Kata dengan Indikator Bobot */}
+                            <div className="grid grid-cols-2 gap-2 pt-1">
                               {detectedAiWords.map((word, idx) => (
-                                <span key={idx} className="px-2.5 py-1 bg-rose-50 border border-rose-100/50 text-rose-700 rounded-lg text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                                  {word}
-                                </span>
+                                <div 
+                                  key={idx} 
+                                  className="flex items-center justify-between p-2.5 bg-rose-50/50 border border-rose-100/30 rounded-xl transition-all hover:bg-rose-50 hover:border-rose-200"
+                                  title={`Kata "${word}" terdeteksi memiliki kontribusi probabilitas tinggi ke arah kelas AI pada model.`}
+                                >
+                                  <span className="text-xs font-bold text-rose-700 uppercase tracking-wide">{word}</span>
+                                  <span className="text-[9px] font-black text-rose-500 bg-rose-100/50 px-1.5 py-0.5 rounded uppercase tracking-wider">
+                                    High TF-IDF
+                                  </span>
+                                </div>
                               ))}
                             </div>
+
+                            {/* KOTAK EDUKASI: PENJELAS CARA KERJA MATEMATIKA TF-IDF (PENTING UNTUK SIDANG!) */}
+                            <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl text-[10px] text-slate-500 leading-relaxed space-y-1">
+                              <p className="font-bold text-slate-700 uppercase tracking-wider text-[9px] flex items-center gap-1">
+                                <span>📊</span> Bagaimana TF-IDF Menilai Ini?
+                              </p>
+                              <p>
+                                Sistem menghitung frekuensi kemunculan kata pada naskah ini (Term Frequency), lalu mengalikan nilainya dengan tingkat keunikan/kelangkaan kata tersebut pada basis data master (Inverse Document Frequency). 
+                              </p>
+                              <p className="pt-0.5 border-t border-slate-200/60 text-slate-400 italic">
+                                * Kosakata di atas disorot karena secara statistik merupakan pilihan kata favorit yang sering diekstrak oleh model bahasa besar Gemma 4 dibanding data pembanding manusia.
+                              </p>
+                            </div>
+
                           </div>
                         )}
                       </div>
