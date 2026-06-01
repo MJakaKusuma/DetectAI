@@ -36,6 +36,9 @@ export default function DashboardPage() {
   const [username, setUsername] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   
+  // State Baru: Kontrol Sub-Tab di dalam Kartu Hasil Diagnostik
+  const [resultTab, setResultTab] = useState<"overview" | "stylometry" | "tfidf">("overview");
+
   // State untuk modul Feedback & Eksport
   const [showFeedbackForm, setShowFeedbackForm] = useState(false);
   const [correctLabel, setCorrectLabel] = useState("Human");
@@ -424,178 +427,198 @@ export default function DashboardPage() {
             </div>
 
             {/* Kolom Kanan: Hasil & Penjelasan Diagnostik (EXPANDABLE / SEE MORE PANEL) */}
+            {/* ============================================================================== */}
+            {/* KOLOM KANAN: LAPORAN DIAGNOSTIK COMPACT DENGAN SUB-TAB (ANTI-SCROLL) */}
+            {/* ============================================================================== */}
             <div className="space-y-6">
-              <div className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm min-h-[350px] flex flex-col justify-between">
+              <div className="bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm min-h-[350px] flex flex-col justify-between">
                 {loading ? (
                   <ScannerLoader />
                 ) : result ? (
-                  <div className="space-y-6 animate-fade-in">
+                  <div className="space-y-5 animate-fade-in">
                     
-                    {/* Hasil Utama */}
-                    <div className="text-center">
-                      <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
-                        result.prediction === "AI" ? "bg-rose-50 text-rose-700 border border-rose-100" : "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                      }`}>
-                        {result.prediction === "AI" ? "Mesin" : "Manusia"}
-                      </span>
-                      <h3 className={`text-3xl font-black mt-4 ${result.prediction === "AI" ? "text-rose-600" : "text-emerald-600"}`}>
-                        {result.prediction === "AI" ? "🤖 AI Generated" : "👤 Human Written"}
-                      </h3>
+                    {/* Header Laporan */}
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Diagnostic Report #{result.prediction_id}</span>
+                      <span className="text-[9px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">Verified ML</span>
                     </div>
 
-                    <div className="pt-4 border-t border-slate-100">
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="text-slate-400">Tingkat Keyakinan</span>
-                        <span className="font-bold text-slate-700">{result.confidence}</span>
-                      </div>
-                      <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
-                        <div className={`h-full ${result.prediction === "AI" ? "bg-rose-500" : "bg-emerald-500"}`} style={{ width: result.confidence }} />
-                      </div>
+                    {/* SUB-TAB NAVIGATION INTERNAL (Gaya Dashboard SaaS Premium) */}
+                    <div className="flex bg-slate-100 p-1 rounded-lg text-[10px] font-bold">
+                      <button 
+                        type="button"
+                        onClick={() => setResultTab("overview")}
+                        className={`flex-1 py-1.5 rounded-md transition-all ${
+                          resultTab === "overview" 
+                            ? "bg-white text-slate-800 shadow-xs" 
+                            : "text-slate-400 hover:text-slate-600"
+                        }`}
+                      >
+                        📊 Overview
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => setResultTab("stylometry")}
+                        className={`flex-1 py-1.5 rounded-md transition-all ${
+                          resultTab === "stylometry" 
+                            ? "bg-white text-slate-800 shadow-xs" 
+                            : "text-slate-400 hover:text-slate-600"
+                        }`}
+                      >
+                        ✍️ Stilometri
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => setResultTab("tfidf")}
+                        className={`flex-1 py-1.5 rounded-md transition-all ${
+                          resultTab === "tfidf" 
+                            ? "bg-white text-slate-800 shadow-xs" 
+                            : "text-slate-400 hover:text-slate-600"
+                        }`}
+                      >
+                        🔍 Kosakata
+                      </button>
                     </div>
 
-                    {/* TOMBOL "SEE MORE" (KONTROL EXPANDABLE DETAIL) */}
-                    <button
-                      onClick={() => setShowDetails(!showDetails)}
-                      className="w-full py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-500 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5"
-                    >
-                      {showDetails ? "Sembunyikan Rincian Laporan ▲" : "Tampilkan Rincian Laporan ▼"}
-                    </button>
+                    {/* ========================== CONTENT SUB-TABS ========================== */}
 
-                    {/* AREA DETAIL: Hanya muncul jika showDetails === true */}
-                    {showDetails && (
-                      <div className="space-y-6 pt-4 border-t border-slate-100 animate-fade-in">
-                        
-                        {/* Eksplanasi Logika Model (XAI) */}
-                         <div className="p-4 bg-slate-50 border border-slate-150 rounded-xl space-y-2 text-xs">
-                            <div className="flex items-center gap-2 font-bold text-slate-700">
-                              <span className="text-sm">🔍</span>
-                              <span className="uppercase tracking-wider text-[10px]">Eksplanasi Logika Model:</span>
-                            </div>
-                            <p className="text-slate-500 leading-relaxed">
-                              {getDynamicExplanation()} {/* <--- Memanggil fungsi dinamis baru */}
-                            </p>
-                          </div>
+                    {/* TAB 1: OVERVIEW */}
+                    {resultTab === "overview" && (
+                      <div className="space-y-4 animate-fade-in">
+                        {/* Hasil Utama */}
+                        <div className="text-center py-1">
+                          <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                            result.prediction === "AI" ? "bg-rose-50 text-rose-700 border border-rose-100" : "bg-emerald-50 text-emerald-700 border border-emerald-100"
+                          }`}>
+                            {result.prediction === "AI" ? "Mesin" : "Manusia"}
+                          </span>
+                          <h3 className={`text-2xl font-black mt-2 uppercase ${result.prediction === "AI" ? "text-rose-600" : "text-emerald-600"}`}>
+                            {result.prediction === "AI" ? "🤖 AI Generated" : "👤 Human Written"}
+                          </h3>
+                        </div>
 
-                        {/* Metrik Stilometri */}
-                        <div className="space-y-5">
-                          <div className="flex justify-between items-center">
-                            <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Komparasi Tolok Ukur Gaya:</h4>
-                            <span className="text-[9px] font-bold text-slate-400">Acuan: AI [Merah] | Manusia [Hijau]</span>
+                        {/* Progress Keyakinan */}
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-[11px] font-semibold">
+                            <span className="text-slate-400">Tingkat Keyakinan</span>
+                            <span className={`font-bold ${result.prediction === "AI" ? "text-rose-600" : "text-emerald-600"}`}>{result.confidence}</span>
                           </div>
-                          
-                          {/* Parameter 1: Panjang Kalimat */}
-                          <div className="space-y-2 text-xs">
-                            <div className="flex justify-between text-[11px]">
-                              <span className="text-slate-500 font-semibold">Panjang Kalimat Rata-rata</span>
-                              <span className="font-bold text-slate-700">{result.stylometry.avg_sent_len}</span>
-                            </div>
-                            <div className="relative w-full h-1.5 bg-slate-100 rounded-full">
-                              <div className="absolute left-[30%] right-[50%] h-full bg-rose-200/50" />
-                              <div className="absolute left-[60%] right-[10%] h-full bg-emerald-200/50" />
-                              <div 
-                                className="absolute w-3 h-3 bg-indigo-600 border border-white rounded-full -top-0.5 shadow-md transition-all duration-500" 
-                                style={{ left: `${Math.min(100, (currentAvgSentLen / 30) * 100)}%` }}
-                              />
-                            </div>
-                            <p className={`text-[10px] font-medium leading-tight px-2.5 py-1 rounded-md bg-slate-50 border border-slate-100 ${
-                              currentAvgSentLen >= 18 ? "text-emerald-700" : "text-rose-600"
-                            }`}>
-                              * {sentLenDiag}
-                            </p>
-                          </div>
-
-                          {/* Parameter 2: Keberagaman Kosakata */}
-                          <div className="space-y-2 text-xs pt-2">
-                            <div className="flex justify-between text-[11px]">
-                              <span className="text-slate-500 font-semibold">Kekayaan Kosakata (Lexical Diversity)</span>
-                              <span className="font-bold text-slate-700">{result.stylometry.lex_div}</span>
-                            </div>
-                            <div className="relative w-full h-1.5 bg-slate-100 rounded-full">
-                              <div className="absolute left-[60%] right-[25%] h-full bg-rose-200/50" />
-                              <div className="absolute left-[80%] right-[5%] h-full bg-emerald-200/50" />
-                              <div 
-                                className="absolute w-3 h-3 bg-indigo-600 border border-white rounded-full -top-0.5 shadow-md transition-all duration-500" 
-                                style={{ left: `${currentLexDiv}%` }}
-                              />
-                            </div>
-                            <p className={`text-[10px] font-medium leading-tight px-2.5 py-1 rounded-md bg-slate-50 border border-slate-100 ${
-                              currentLexDiv >= 75 ? "text-emerald-700" : "text-rose-600"
-                            }`}>
-                              * {lexDivDiag}
-                            </p>
-                          </div>
-
-                          {/* Parameter 3: Kerapatan Tanda Baca */}
-                          <div className="space-y-2 text-xs pt-2">
-                            <div className="flex justify-between text-[11px]">
-                              <span className="text-slate-500 font-semibold">Kerapatan Tanda Baca</span>
-                              <span className="font-bold text-slate-700">{result.stylometry.punct_dens}</span>
-                            </div>
-                            <div className="relative w-full h-1.5 bg-slate-100 rounded-full">
-                              <div className="absolute left-[25%] right-[60%] h-full bg-rose-200/50" />
-                              <div className="absolute left-[45%] right-[20%] h-full bg-emerald-200/50" />
-                              <div 
-                                className="absolute w-3 h-3 bg-indigo-600 border border-white rounded-full -top-0.5 shadow-md transition-all duration-500" 
-                                style={{ left: `${Math.min(100, (currentPunctDens / 10) * 100)}%` }}
-                              />
-                            </div>
-                            <p className={`text-[10px] font-medium leading-tight px-2.5 py-1 rounded-md bg-slate-50 border border-slate-100 ${
-                              currentPunctDens >= 4.5 ? "text-emerald-700" : "text-rose-600"
-                            }`}>
-                              * {punctDensDiag}
-                            </p>
+                          <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden relative">
+                            <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-slate-300 z-10" />
+                            <div className={`h-full ${result.prediction === "AI" ? "bg-rose-500" : "bg-emerald-500"}`} style={{ width: result.confidence }} />
                           </div>
                         </div>
 
-                        {/* Pemindai Kata Kunci AI (TF-IDF) */}
-                        {/* SESUDAH (Ubah Menjadi Analisis Leksikal TF-IDF Ultra Informatif) */}
-                        {detectedAiWords.length > 0 && (
-                          <div className="pt-4 border-t border-slate-100 space-y-3.5">
-                            
-                            {/* Header & Deskripsi */}
-                            <div className="space-y-0.5">
-                              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Analisis Leksikal (TF-IDF Clues):</h4>
-                              <p className="text-[9px] text-slate-400 leading-relaxed">
-                                Metode TF-IDF mendeteksi kosakata di bawah ini memiliki bobot asosiasi mesin (AI-favored weight) yang tinggi berdasarkan korpus basis data latihan kita.
-                              </p>
-                            </div>
-                            
-                            {/* Tampilan Grid Kata dengan Indikator Bobot */}
-                            <div className="grid grid-cols-2 gap-2 pt-1">
-                              {detectedAiWords.map((word, idx) => (
-                                <div 
-                                  key={idx} 
-                                  className="flex items-center justify-between p-2.5 bg-rose-50/50 border border-rose-100/30 rounded-xl transition-all hover:bg-rose-50 hover:border-rose-200"
-                                  title={`Kata "${word}" terdeteksi memiliki kontribusi probabilitas tinggi ke arah kelas AI pada model.`}
-                                >
-                                  <span className="text-xs font-bold text-rose-700 uppercase tracking-wide">{word}</span>
-                                  <span className="text-[9px] font-black text-rose-500 bg-rose-100/50 px-1.5 py-0.5 rounded uppercase tracking-wider">
-                                    High TF-IDF
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-
-                            {/* KOTAK EDUKASI: PENJELAS CARA KERJA MATEMATIKA TF-IDF (PENTING UNTUK SIDANG!) */}
-                            <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl text-[10px] text-slate-500 leading-relaxed space-y-1">
-                              <p className="font-bold text-slate-700 uppercase tracking-wider text-[9px] flex items-center gap-1">
-                                <span>📊</span> Bagaimana TF-IDF Menilai Ini?
-                              </p>
-                              <p>
-                                Sistem menghitung frekuensi kemunculan kata pada naskah ini (Term Frequency), lalu mengalikan nilainya dengan tingkat keunikan/kelangkaan kata tersebut pada basis data master (Inverse Document Frequency). 
-                              </p>
-                              <p className="pt-0.5 border-t border-slate-200/60 text-slate-400 italic">
-                                * Kosakata di atas disorot karena secara statistik merupakan pilihan kata favorit yang sering diekstrak oleh model bahasa besar Gemma 4 dibanding data pembanding manusia.
-                              </p>
-                            </div>
-
-                          </div>
-                        )}
+                        {/* Eksplanasi Logika (XAI) */}
+                        <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl text-slate-500 text-[11px] leading-relaxed">
+                          {getDynamicExplanation()}
+                        </div>
                       </div>
                     )}
 
+                    {/* TAB 2: STILOMETRI (3 METERAN GAYA BAHASA) */}
+                    {resultTab === "stylometry" && (
+                      <div className="space-y-4 animate-fade-in">
+                        <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase pb-1 border-b border-slate-50">
+                          <span>Metrik Stilometri</span>
+                          <span>Acuan: AI [Merah] | Manusia [Hijau]</span>
+                        </div>
+                        
+                        {/* Parameter 1: Panjang Kalimat */}
+                        <div className="space-y-1.5 text-xs">
+                          <div className="flex justify-between text-[11px]">
+                            <span className="text-slate-500 font-semibold">Panjang Kalimat Rata-rata</span>
+                            <span className="font-bold text-slate-700">{result.stylometry.avg_sent_len}</span>
+                          </div>
+                          <div className="relative w-full h-1 bg-slate-100 rounded-full">
+                            <div className="absolute left-[30%] right-[50%] h-full bg-rose-200/50" />
+                            <div className="absolute left-[60%] right-[10%] h-full bg-emerald-200/50" />
+                            <div 
+                              className="absolute w-2.5 h-2.5 bg-indigo-600 border border-white rounded-full -top-0.5 shadow-sm transition-all" 
+                              style={{ left: `${Math.min(100, (currentAvgSentLen / 30) * 100)}%` }}
+                            />
+                          </div>
+                          <p className={`text-[10px] italic leading-tight ${currentAvgSentLen >= 18 ? "text-emerald-600" : "text-rose-500"}`}>
+                            * {sentLenDiag}
+                          </p>
+                        </div>
+
+                        {/* Parameter 2: Keberagaman Kosakata */}
+                        <div className="space-y-1.5 text-xs pt-1">
+                          <div className="flex justify-between text-[11px]">
+                            <span className="text-slate-500 font-semibold">Kekayaan Kosakata</span>
+                            <span className="font-bold text-slate-700">{result.stylometry.lex_div}</span>
+                          </div>
+                          <div className="relative w-full h-1 bg-slate-100 rounded-full">
+                            <div className="absolute left-[60%] right-[25%] h-full bg-rose-200/50" />
+                            <div className="absolute left-[80%] right-[5%] h-full bg-emerald-200/50" />
+                            <div 
+                              className="absolute w-2.5 h-2.5 bg-indigo-600 border border-white rounded-full -top-0.5 shadow-sm transition-all" 
+                              style={{ left: `${currentLexDiv}%` }}
+                            />
+                          </div>
+                          <p className={`text-[10px] italic leading-tight ${currentLexDiv >= 75 ? "text-emerald-600" : "text-rose-500"}`}>
+                            * {lexDivDiag}
+                          </p>
+                        </div>
+
+                        {/* Parameter 3: Kerapatan Tanda Baca */}
+                        <div className="space-y-1.5 text-xs pt-1">
+                          <div className="flex justify-between text-[11px]">
+                            <span className="text-slate-500 font-semibold">Kerapatan Tanda Baca</span>
+                            <span className="font-bold text-slate-700">{result.stylometry.punct_dens}</span>
+                          </div>
+                          <div className="relative w-full h-1 bg-slate-100 rounded-full">
+                            <div className="absolute left-[25%] right-[60%] h-full bg-rose-200/50" />
+                            <div className="absolute left-[45%] right-[20%] h-full bg-emerald-200/50" />
+                            <div 
+                              className="absolute w-2.5 h-2.5 bg-indigo-600 border border-white rounded-full -top-0.5 shadow-sm transition-all" 
+                              style={{ left: `${Math.min(100, (currentPunctDens / 10) * 100)}%` }}
+                            />
+                          </div>
+                          <p className={`text-[10px] italic leading-tight ${currentPunctDens >= 4.5 ? "text-emerald-700" : "text-rose-600"}`}>
+                            * {punctDensDiag}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* TAB 3: KOSAKATA (TF-IDF CLUES & MATH EXPLANATION) */}
+                    {resultTab === "tfidf" && (
+                      <div className="space-y-4 animate-fade-in">
+                        {detectedAiWords.length > 0 ? (
+                          <div className="space-y-3">
+                            <div className="space-y-0.5">
+                              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Leksikal Analisis (TF-IDF Clues):</h4>
+                              <p className="text-[9px] text-slate-400">Kata penanda AI terdeteksi di dalam dokumen Anda:</p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-1.5">
+                              {detectedAiWords.map((word, idx) => (
+                                <div key={idx} className="flex items-center justify-between p-2 bg-rose-50/50 border border-rose-100/40 rounded-lg text-[10px]">
+                                  <span className="font-bold text-rose-700 uppercase">{word}</span>
+                                  <span className="text-[8px] font-black text-rose-500 bg-rose-100/50 px-1 py-0.5 rounded">High TF-IDF</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-center py-4 text-slate-400 text-xs">Tidak ada kosakata khas mesin yang dominan terdeteksi.</div>
+                        )}
+
+                        {/* Kotak Edukasi Teori */}
+                        <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl text-[10px] text-slate-400 leading-relaxed space-y-1">
+                          <p className="font-bold text-slate-600 uppercase tracking-wider text-[9px]">📊 Bagaimana TF-IDF Menilai Ini?</p>
+                          <p>
+                            Sistem mengalikan frekuensi kata pada dokumen ini (**Term Frequency**) dengan tingkat keunikan kata tersebut pada basis data master (**Inverse Document Frequency**) [2]. Kata di atas disorot karena secara statistik merupakan kosakata favorit yang sering diekstrak oleh model Gemma 4 dibanding data pembanding manusia [1, 2].
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ========================== ACTIONS FOOTER ========================== */}
+
                     {/* Tombol Cetak Laporan PDF */}
-                    <div className="pt-4 border-t border-slate-100">
+                    <div className="pt-3 border-t border-slate-100">
                       <button 
                         onClick={handlePrintPDF}
                         className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-sm"
@@ -606,11 +629,11 @@ export default function DashboardPage() {
                     </div>
 
                     {/* Feedback Form (Koreksi) */}
-                    <div className="pt-2">
+                    <div className="pt-1">
                       {!showFeedbackForm ? (
                         <button 
                           onClick={() => setShowFeedbackForm(true)} 
-                          className="text-[10px] font-bold text-slate-400 hover:text-indigo-600 hover:underline flex items-center justify-center gap-1.5 w-full py-2 border border-dashed border-slate-200 rounded-lg hover:border-indigo-300 transition-all"
+                          className="text-[10px] font-bold text-slate-400 hover:text-indigo-600 hover:underline flex items-center justify-center gap-1.5 w-full py-1.5 border border-dashed border-slate-200 rounded-lg hover:border-indigo-300 transition-all"
                         >
                           ⚠️ Deteksi Kurang Tepat? Berikan Koreksi
                         </button>
