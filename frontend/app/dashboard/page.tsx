@@ -58,6 +58,10 @@ export default function DashboardPage() {
   // Paginasi Riwayat User (5 data per halaman)
   const ROWS_PER_PAGE = 5;
   const [historyPage, setHistoryPage] = useState(1);
+    const handleTabChange = (tab: "analyzer" | "history" | "stats") => {
+    setActiveTab(tab);
+    setHistoryPage(1); // Reset halaman riwayat ke nomor 1 setiap kali pindah tab
+  };
 
   useEffect(() => {
     const storedUsername = localStorage.getItem("username");
@@ -364,25 +368,61 @@ export default function DashboardPage() {
       {/* B. LAYOUT DASHBOARD UTAMA (print:hidden) */}
       {/* ============================================================================== */}
       <div className="print:hidden space-y-8">
-        
-        {/* Minimalist Page Header */}
-        <div className="mb-8 animate-fade-in">
-          <div className="flex items-center gap-2.5">
-            <span className="text-2xl">📝</span>
-            <h1 className="text-3xl font-black text-slate-800 tracking-tight">AI Text Analyzer</h1>
-          </div>
-          <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
-            Evaluasi keaslian dokumen Bahasa Indonesia menggunakan parameter analisis Stilometri struktural teks dan TF-IDF secara real-time.
-          </p>
-        </div>
 
-        {/* Tab Navigation */}
-        <div className="flex border-b border-slate-200 mb-8 gap-6 overflow-x-auto whitespace-nowrap">
-          <button onClick={() => setActiveTab("analyzer")} className={`pb-3 text-sm font-bold border-b-2 transition-all ${activeTab === "analyzer" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-400"}`}>📝 Text Analyzer</button>
+        {/* ============================================================================== */}
+        {/* TAB NAVIGATION (SAAS CAPSULE STYLE - RESPONSIF) */}
+        {/* ============================================================================== */}
+        <div className="flex bg-slate-100/80 p-1.5 rounded-2xl mb-8 gap-1.5 overflow-x-auto scrollbar-none whitespace-nowrap max-w-md border border-slate-200/40 shadow-xs">
+          
+          {/* Tab 1: Analyzer */}
+          <button 
+            type="button"
+            onClick={() => handleTabChange("analyzer")} // Menggunakan handler reset halaman
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all duration-300 ${
+              activeTab === "analyzer" 
+                ? "bg-white text-indigo-600 shadow-xs" 
+                : "text-slate-400 hover:text-slate-600 hover:bg-white/40"
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+            </svg>
+            Text Analyzer
+          </button>
+
+          {/* Tab 2: History (Hanya muncul jika login) */}
           {username && (
             <>
-              <button onClick={() => setActiveTab("history")} className={`pb-3 text-sm font-bold border-b-2 transition-all ${activeTab === "history" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-400"}`}>⏳ Riwayat Pengujian</button>
-              <button onClick={() => setActiveTab("stats")} className={`pb-3 text-sm font-bold border-b-2 transition-all ${activeTab === "stats" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-400"}`}>📊 Statistik Akun</button>
+              <button 
+                type="button"
+                onClick={() => handleTabChange("history")} 
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all duration-300 ${
+                  activeTab === "history" 
+                    ? "bg-white text-indigo-600 shadow-xs" 
+                    : "text-slate-400 hover:text-slate-600 hover:bg-white/40"
+                }`}
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Riwayat Uji
+              </button>
+
+              {/* Tab 3: Statistics (Hanya muncul jika login) */}
+              <button 
+                type="button"
+                onClick={() => handleTabChange("stats")} 
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all duration-300 ${
+                  activeTab === "stats" 
+                    ? "bg-white text-indigo-600 shadow-xs" 
+                    : "text-slate-400 hover:text-slate-600 hover:bg-white/40"
+                }`}
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 002 2h2a2 2 0 002-2z" />
+                </svg>
+                Statistik
+              </button>
             </>
           )}
         </div>
