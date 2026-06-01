@@ -1,13 +1,13 @@
 import re
 import numpy as np
 import pandas as pd
-from nlp_id.postagger import PosTagger
+from nlp_id import PosTag
 
 # Inisialisasi POS Tagger Kata.ai di tingkat modul (global scope)
 # Ini wajib ditaruh di luar fungsi agar aset kamus hanya dimuat SEKALI saat server booting,
 # sehingga proses prediksi teks berjalan instan tanpa ada delay/jeda pemuatan kamus berulang.
 try:
-    postagger = PosTagger()
+    postagger = PosTag()
     print("[INFO] Sukses memuat POS Tagger Kata.ai!")
 except Exception as e:
     print(f"[Warning] Gagal inisialisasi POS Tagger: {e}")
