@@ -61,8 +61,8 @@ export default function DashboardPage() {
   const { showToast } = useToast();
   const router = useRouter();
 
-  // Paginasi Riwayat User (5 data per halaman)
-  const ROWS_PER_PAGE = 5;
+  // Paginasi Riwayat User (10 data per halaman)
+  const ROWS_PER_PAGE = 10;
   const [historyPage, setHistoryPage] = useState(1);
     const handleTabChange = (tab: "analyzer" | "history" | "stats") => {
     setActiveTab(tab);
@@ -652,7 +652,7 @@ export default function DashboardPage() {
                               style={{ left: `${Math.min(100, (currentAvgSentLen / 30) * 100)}%` }}
                             />
                           </div>
-                          <p className={`text-[10px] leading-tight px-2.5 py-1 rounded-md bg-slate-50 border border-slate-100 ${currentAvgSentLen >= 18 ? "text-emerald-700" : "text-rose-600"}`}>
+                          <p className={`text-[10px] italic leading-tight px-2.5 py-1 rounded-md bg-slate-50 border border-slate-100 ${currentAvgSentLen >= 18 ? "text-emerald-700" : "text-rose-600"}`}>
                             {sentLenDiag}
                           </p>
                         </div>
@@ -671,7 +671,7 @@ export default function DashboardPage() {
                               style={{ left: `${currentLexDiv}%` }}
                             />
                           </div>
-                          <p className={`text-[10px] leading-tight px-2.5 py-1 rounded-md bg-slate-50 border border-slate-100 ${currentLexDiv >= 75 ? "text-emerald-700" : "text-rose-600"}`}>
+                          <p className={`text-[10px] italic leading-tight px-2.5 py-1 rounded-md bg-slate-50 border border-slate-100 ${currentLexDiv >= 75 ? "text-emerald-700" : "text-rose-600"}`}>
                             {lexDivDiag}
                           </p>
                         </div>
@@ -690,7 +690,7 @@ export default function DashboardPage() {
                               style={{ left: `${Math.min(100, (currentPunctDens / 10) * 100)}%` }}
                             />
                           </div>
-                          <p className={`text-[10px] leading-tight px-2.5 py-1 rounded-md bg-slate-50 border border-slate-100 ${currentPunctDens >= 4.5 ? "text-emerald-700" : "text-rose-600"}`}>
+                          <p className={`text-[10px] italic leading-tight px-2.5 py-1 rounded-md bg-slate-50 border border-slate-100 ${currentPunctDens >= 4.5 ? "text-emerald-700" : "text-rose-600"}`}>
                             {punctDensDiag}
                           </p>
                         </div>
