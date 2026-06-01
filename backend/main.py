@@ -48,30 +48,30 @@ app = FastAPI()
 global_ai_keywords = []
 
 def update_global_ai_keywords():
-    """Mengambil 15 kata dengan koefisien positif terbesar langsung dari model aktif"""
+    """Mengambil 15 kata dengan koefisien positif terbesar beserta nilainya"""
     global global_ai_keywords, model, tfidf
     try:
-        # Ambil daftar kata dari TF-IDF (1000 kata)
         feature_names = tfidf.get_feature_names_out()
-        # Ambil koefisien dari Regresi Logistik
         coefs = model.coef_[0]
-        # Batasi hanya koefisien milik TF-IDF (1000 pertama)
         tfidf_coefs = coefs[:len(feature_names)]
         
-        # Gabungkan kata dengan bobot koefisiennya
         word_coef_pairs = list(zip(feature_names, tfidf_coefs))
-        
-        # Urutkan secara menurun berdasarkan bobot koefisien (terbesar = paling mengarah ke AI)
         sorted_pairs = sorted(word_coef_pairs, key=lambda x: x[1], reverse=True)
         
-        # Ambil 15 kata teratas
-        global_ai_keywords = [pair[0] for pair in sorted_pairs[:15]]
-        print(f"\n[XAI] Berhasil memuat 15 kata kunci AI dinamis: {global_ai_keywords}\n")
+        # UBAH MENJADI FORMAT OBJEK (Mencatat Kata dan Nilai Koefisiennya)
+        global_ai_keywords = [
+            {"word": pair[0], "weight": float(pair[1])} 
+            for pair in sorted_pairs[:15]
+        ]
+        print(f"\n[XAI] Berhasil memuat 15 kata kunci AI berbobot dinamis.")
     except Exception as e:
-        print(f"\n[XAI Warning] Gagal mengekstrak kata kunci dinamis: {e}. Menggunakan fallback.")
-        # Cadangan kosakata jika model belum memiliki koefisien
-        # global_ai_keywords = ["komprehensif", "signifikan", "optimal", "fundamentalis", "sehingga", "oleh karena itu", "efisiensi", "integrasi", "transparansi", "fleksibilitas"]
-
+        print(f"\n[XAI Warning] Gagal mengekstrak kata kunci: {e}. Menggunakan fallback.")
+        # fallback_words = ["komprehensif", "signifikan", "optimal", "fundamentalis", "sehingga", "oleh karena itu", "efisiensi", "integrasi", "transparansi", "fleksibilitas"]
+        # Fallback menggunakan nilai desimal menurun
+        global_ai_keywords = [
+            {"word": word, "weight": float(10 - idx) / 2} 
+            for idx, word in enumerate
+        ]
 # LOAD MODELS (DENGAN RE-CALCULATION KATA KUNCI)
 try:
     model = joblib.load('models/logistic_model.pkl')

@@ -18,7 +18,12 @@ interface PredictionResponse {
   confidence: string;
   prediction_id: number;
   stylometry: StylometryData;
-  ai_keywords: string[]; 
+  ai_keywords: AiKeyword[]; 
+}
+
+interface AiKeyword {
+  word: string;
+  weight: number;
 }
 
 interface HistoryItem {
@@ -51,7 +56,7 @@ export default function DashboardPage() {
   const [enableHighlight, setEnableHighlight] = useState(true);
 
   // Kata kunci indikatif penanda AI (TF-IDF Clues)
-  const [detectedAiWords, setDetectedAiWords] = useState<string[]>([]);
+  const [detectedAiWords, setDetectedAiWords] = useState<AiKeyword[]>([]);
 
   const { showToast } = useToast();
   const router = useRouter();
@@ -117,11 +122,12 @@ export default function DashboardPage() {
       setResult(data);
       
       const aiKeywords = data.ai_keywords;
-      const foundWords = aiKeywords.filter(word => text.toLowerCase().includes(word));
+      // Saring objek kata kunci yang benar-benar ada di teks input
+      const foundWords = aiKeywords.filter(kw => text.toLowerCase().includes(kw.word));
       setDetectedAiWords(foundWords);
 
       showToast("Analisis teks selesai!", "success");
-    } catch (error: unknown ) {
+    } catch (error: unknown) {
       showToast((error as Error).message || "Gagal menghubungi server.", "error");
     } finally {
       setLoading(false);
@@ -262,7 +268,7 @@ export default function DashboardPage() {
     const sentences = text.split(/(?<=[.!?])\s+/);
     
     // Gunakan daftar kata dinamis dari backend, jika belum ada gunakan fallback kosong []
-    const activeKeywords = result ? result.ai_keywords : [];
+    const activeKeywords = result ? result.ai_keywords.map(kw => kw.word) : [];
 
     return sentences.map((sentence, idx) => {
       const trimmedSent = sentence.trim();
@@ -701,12 +707,72 @@ export default function DashboardPage() {
                               <p className="text-[9px] text-slate-400">Kata penanda AI terdeteksi di dalam dokumen Anda:</p>
                             </div>
                             <div className="grid grid-cols-2 gap-1.5">
-                              {detectedAiWords.map((word, idx) => (
-                                <div key={idx} className="flex items-center justify-between p-2 bg-rose-50/50 border border-rose-100/40 rounded-lg text-[10px]">
-                                  <span className="font-bold text-rose-700 uppercase">{word}</span>
-                                  <span className="text-[8px] font-black text-rose-500 bg-rose-100/50 px-1 py-0.5 rounded">High TF-IDF</span>
-                                </div>
-                              ))}
+                              {detectedAiWords.length > 0 && result && (
+                      <div className="pt-4 border-t border-slate-100 space-y-3.5">
+                        
+                        <div className="space-y-0.5">
+                          <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Analisis Leksikal (TF-IDF Clues):</h4>
+                          <p className="text-[9px] text-slate-400 leading-relaxed">
+                            Kosakata di bawah ini terdeteksi memiliki bobot kemunculan mesin berdasarkan 3 tingkat signifikansi matematika.
+                          </p>
+                        </div>
+                        
+                        {/* Tampilan Grid Kata Berwarna Dinamis Berdasarkan Posisi Peringkat */}
+                        <div className="grid grid-cols-2 gap-2 pt-1">
+                          {detectedAiWords.map((item, idx) => {
+                            // Cari indeks aslinya di array 15 kata untuk menentukan peringkat
+                            const originalIndex = result.ai_keywords.findIndex(kw => kw.word === item.word);
+                            
+                            let badgeText = "Low TF-IDF";
+                            let cardClass = "bg-slate-50 border-slate-150";
+                            let badgeClass = "bg-slate-100 text-slate-500";
+                            let textClass = "text-slate-700";
+
+                            if (originalIndex < 5) {
+                              // Top 5: High Impact (Merah)
+                              badgeText = "High TF-IDF";
+                              cardClass = "bg-rose-50/50 border-rose-100/40 hover:bg-rose-50";
+                              badgeClass = "bg-rose-100/50 text-rose-500";
+                              textClass = "text-rose-700";
+                            } else if (originalIndex < 10) {
+                              // 6-10: Medium Impact (Oranye/Amber)
+                              badgeText = "Med TF-IDF";
+                              cardClass = "bg-amber-50/50 border-amber-100/40 hover:bg-amber-50";
+                              badgeClass = "bg-amber-100/50 text-amber-500";
+                              textClass = "text-amber-700";
+                            } else {
+                              // 11-15: Low Impact (Abu-abu/Slate)
+                              badgeText = "Low TF-IDF";
+                              cardClass = "bg-slate-50/50 border-slate-200/40 hover:bg-slate-100/50";
+                              badgeClass = "bg-slate-100 text-slate-400";
+                              textClass = "text-slate-500";
+                            }
+
+                            return (
+                              <div 
+                                key={idx} 
+                                className={`flex items-center justify-between p-2.5 border rounded-xl transition-all ${cardClass}`}
+                                title={`Kata "${item.word}" memiliki nilai koefisien model sebesar ${item.weight.toFixed(4)}.`}
+                              >
+                                <span className={`text-xs font-bold uppercase tracking-wide ${textClass}`}>{item.word}</span>
+                                <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider ${badgeClass}`}>
+                                  {badgeText}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {/* Kotak Edukasi Teori */}
+                        <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl text-[10px] text-slate-400 leading-relaxed space-y-1">
+                          <p className="font-bold text-slate-600 uppercase tracking-wider text-[9px]">📊 Kategori Tingkat Pembobotan:</p>
+                          <p>
+                            Sistem membagi 15 kata kunci teratas menjadi 3 tingkatan: **High** (Bobot koefisien ≥ 85%), **Medium** (Bobot koefisien 50% - 84%), dan **Low** (Bobot koefisien di bawah 50%) berdasarkan nilai statistik asli dari otak model [1].
+                          </p>
+                        </div>
+
+                      </div>
+                    )}
                             </div>
                           </div>
                         ) : (
