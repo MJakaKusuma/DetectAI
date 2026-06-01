@@ -4,7 +4,7 @@ import { apiRequest } from "../lib/api";
 import { useRouter } from "next/navigation";
 import { StatCard, AlertCallout, ScannerLoader } from "../components/dashboardwidgets";
 import { useToast } from "../components/toast";
-import Link from "next/link"; // Gunakan Next.js Link asli untuk menghindari error import
+import Link from "next/link";
 
 interface StylometryData {
   avg_sent_len: string;
@@ -42,15 +42,19 @@ export default function DashboardPage() {
   const [feedbackComment, setFeedbackComment] = useState("");
   const [feedbackLoading, setFeedbackLoading] = useState(false);
 
-  // PAGINASI RIWAYAT USER (5 data per halaman)
-  const ROWS_PER_PAGE = 5;
-  const [historyPage, setHistoryPage] = useState(1);
+  // State Baru: Kontrol Detail Diagnostik & Highlight Kalimat
+  const [showDetails, setShowDetails] = useState(false);
+  const [enableHighlight, setEnableHighlight] = useState(true);
 
   // Kata kunci indikatif penanda AI (TF-IDF Clues)
   const [detectedAiWords, setDetectedAiWords] = useState<string[]>([]);
 
   const { showToast } = useToast();
   const router = useRouter();
+
+  // Paginasi Riwayat User (5 data per halaman)
+  const ROWS_PER_PAGE = 5;
+  const [historyPage, setHistoryPage] = useState(1);
 
   useEffect(() => {
     const storedUsername = localStorage.getItem("username");
@@ -94,6 +98,7 @@ export default function DashboardPage() {
     setLoading(true);
     setResult(null);
     setShowFeedbackForm(false);
+    setShowDetails(false);
     setDetectedAiWords([]);
 
     const token = localStorage.getItem("token");
@@ -114,12 +119,11 @@ export default function DashboardPage() {
     }
   };
 
-  // PEMANGGILAN LAYOUT CETAK PDF PROFESIONAL BROWSER
   const handlePrintPDF = () => {
     if (!result) return;
     showToast("Membuka jendela cetak laporan...", "info");
     setTimeout(() => {
-      window.print(); // Memicu printer / PDF Save Dialog browser
+      window.print();
     }, 500);
   };
 
@@ -150,23 +154,110 @@ export default function DashboardPage() {
 
   const currentAvgSentLen = result ? getStyleNumber(result.stylometry.avg_sent_len) : 0;
   const currentLexDiv = result ? getStyleNumber(result.stylometry.lex_div) : 0;
+  const currentPunctDens = result ? getStyleNumber(result.stylometry.punct_dens) : 0;
+
+  // --- LOGIKA DIAGNOSTIK ANALISIS DINAMIS CERDAS (XAI) ---
+  const sentLenDiag = currentAvgSentLen >= 18 
+    ? "Gaya Manusia (Dinamis): Kalimat Anda panjang dan mengalir alami." 
+    : "Gaya AI (Monoton): Struktur kalimat cenderung pendek dan seragam.";
+
+  const lexDivDiag = currentLexDiv >= 75 
+    ? "Gaya Manusia (Kaya): Kosakata bervariasi dan tidak repetitif." 
+    : "Gaya AI (Terbatas): Banyak pengulangan istilah yang sama secara konsisten.";
+
+  const punctDensDiag = currentPunctDens >= 4.5 
+    ? "Penggunaan tanda baca ekspresif dan bervariasi." 
+    : "Penggunaan tanda baca sangat baku dan kaku.";
+
+  // ==============================================================================
+  // LOGIKA BARU: DESAIN EKSPLANASI DINAMIS DISKUSI FITUR (ANTI-CONTRADICTION)
+  // ==============================================================================
+  const getDynamicExplanation = () => {
+    if (!result) return "";
+    
+    const isAI = result.prediction === "AI";
+    const isSentLenHuman = currentAvgSentLen >= 18;
+    const isLexDivHuman = currentLexDiv >= 75;
+    const isPunctHuman = currentPunctDens >= 4.5;
+    
+    // Hitung berapa banyak indikator stilometri yang bernilai hijau (Gaya Manusia)
+    const humanStyleScore = (isSentLenHuman ? 1 : 0) + (isLexDivHuman ? 1 : 0) + (isPunctHuman ? 1 : 0);
+
+    if (isAI) {
+      if (humanStyleScore >= 2) {
+        // Kasus Screenshot Kanan: Tebak AI, tapi gaya penulisan sangat kaya (hijau)
+        return `Model mendeteksi teks ini sebagai buatan AI terutama didorong oleh pengaruh kuat pembobotan kata leksikal (TF-IDF). Meskipun struktur gaya bahasa Anda (seperti panjang kalimat dan kekayaan kata) secara statistik menunjukkan karakteristik alami manusia, penggunaan kata-kata kunci formal khas mesin tetap mengarahkan model pada klasifikasi AI.`;
+      } else {
+        // Kasus AI standar: Tebak AI, dan gaya memang monoton (merah)
+        return `Model mendeteksi teks ini sebagai buatan AI karena struktur kalimat yang sangat seragam (${result.stylometry.avg_sent_len}) dan keterbatasan variasi kosa kata (${result.stylometry.lex_div}). Pola monoton ini dikombinasikan dengan kemunculan kata kunci formal khas mesin.`;
+      }
+    } else {
+      if (humanStyleScore <= 1) {
+        // Kasus Screenshot Kiri: Tebak Manusia, tapi gaya penulisan monoton (merah)
+        return `Model mendeteksi teks ini sebagai tulisan manusia terutama didorong oleh tidak adanya pola kosa kata khas mesin pada fitur TF-IDF. Meskipun struktur gaya bahasa Anda secara statistik menyerupai pola monoton AI (kalimat cenderung pendek dan kosa kata berulang), kealamian pemilihan kata-kata tetap mengarahkan klasifikasi akhir pada manusia.`;
+      } else {
+        // Kasus Manusia standar: Tebak Manusia, dan gaya memang dinamis (hijau)
+        return `Model mendeteksi teks ini sebagai tulisan manusia karena didukung oleh dinamika struktur penulisan yang kaya. Panjang kalimat rata-rata berada pada rentang ideal manusia (${result.stylometry.avg_sent_len}) dengan struktur yang dinamis, menunjukkan variabilitas alami yang sulit ditiru mesin.`;
+      }
+    }
+  };
+
 
   const totalScans = history.length;
   const aiScans = history.filter(h => h.prediction_result === "AI").length;
   const humanScans = totalScans - aiScans;
   const aiRatio = totalScans > 0 ? ((aiScans / totalScans) * 100).toFixed(1) + "%" : "0%";
 
-  // KALKULASI DATA RIWAYAT TERPAGINASI
   const indexOfLastRow = historyPage * ROWS_PER_PAGE;
   const indexOfFirstRow = indexOfLastRow - ROWS_PER_PAGE;
   const currentHistoryRows = history.slice(indexOfFirstRow, indexOfLastRow);
   const totalHistoryPages = Math.ceil(history.length / ROWS_PER_PAGE);
 
+  // ==============================================================================
+  // INTERACTIVE TEXT HIGHLIGHTER PARSER (Mengidentifikasi Kalimat Indikasi AI)
+  // ==============================================================================
+  const renderHighlightedText = () => {
+    if (!text) return null;
+    
+    // Pecah teks menjadi baris kalimat berdasarkan tanda baca (. ! ?) diikuti spasi
+    const sentences = text.split(/(?<=[.!?])\s+/);
+    const aiKeywords = ["komprehensif", "signifikan", "optimal", "fundamentalis", "sehingga", "oleh karena itu", "efisiensi", "integrasi", "transparansi", "fleksibilitas"];
+
+    return sentences.map((sentence, idx) => {
+      const trimmedSent = sentence.trim();
+      if (!trimmedSent) return null;
+
+      const wordsInSent = trimmedSent.split(/\s+/).length;
+      
+      // Kriteria Kalimat Indikasi AI:
+      // 1. Mengandung kata kunci indikator AI (TF-IDF Clues)
+      // 2. ATAU panjang kalimat berada di rentang monoton mesin (antara 8 sampai 16 kata)
+      const hasAiKeyword = aiKeywords.some(word => trimmedSent.toLowerCase().includes(word));
+      const isMonotonousLength = wordsInSent >= 8 && wordsInSent <= 16;
+      
+      const isSuspicious = enableHighlight && (hasAiKeyword || isMonotonousLength);
+
+      return (
+        <span 
+          key={idx} 
+          className={`transition-all duration-350 mr-1.5 leading-relaxed rounded ${
+            isSuspicious 
+              ? "bg-rose-100/80 border-b border-rose-300 text-rose-950 cursor-help" 
+              : "text-slate-700"
+          }`}
+          title={isSuspicious ? `Indikasi AI: Kalimat ini memiliki struktur monoton (${wordsInSent} kata) atau menggunakan kosakata formal.` : undefined}
+        >
+          {sentence}{" "}
+        </span>
+      );
+    });
+  };
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12 min-h-[75vh]">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12 min-h-[calc(100vh-16rem)]">
       
       {/* ============================================================================== */}
-      {/* A. LAYOUT KHUSUS PRINT PDF (Hanya muncul saat dicetak / print:block) */}
+      {/* A. LAYOUT KHUSUS PRINT PDF */}
       {/* ============================================================================== */}
       {result && (
         <div className="hidden print:block w-full max-w-4xl mx-auto p-12 bg-white text-slate-900 font-sans border border-slate-200 rounded-lg">
@@ -198,7 +289,6 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Hasil Utama */}
           <div className="p-6 bg-slate-50 border border-slate-200 rounded-xl text-center mb-8">
             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Kesimpulan Klasifikasi</p>
             <h2 className={`text-3xl font-black mt-2 uppercase ${result.prediction === "AI" ? "text-rose-600" : "text-emerald-600"}`}>
@@ -207,7 +297,6 @@ export default function DashboardPage() {
             <p className="text-xs text-slate-500 mt-2">Dengan Tingkat Probabilitas Keyakinan Sebesar: <span className="font-bold text-slate-800">{result.confidence}</span></p>
           </div>
 
-          {/* Nilai Stilometri */}
           <div className="mb-8">
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Parameter Statistik Gaya Bahasa (Stilometri)</h3>
             <table className="w-full text-left text-xs border border-slate-200">
@@ -225,7 +314,6 @@ export default function DashboardPage() {
             </table>
           </div>
 
-          {/* Cuplikan Teks */}
           <div className="mb-8">
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Sampel Naskah Uji</h3>
             <div className="p-4 border border-slate-200 rounded-lg text-xs italic text-slate-600 leading-relaxed">
@@ -240,11 +328,11 @@ export default function DashboardPage() {
       )}
 
       {/* ============================================================================== */}
-      {/* B. LAYOUT DASHBOARD UTAMA (Otomatis Sembunyi Saat Cetak / print:hidden) */}
+      {/* B. LAYOUT DASHBOARD UTAMA (print:hidden) */}
       {/* ============================================================================== */}
       <div className="print:hidden space-y-8">
         
-        {/* Header Panel */}
+        {/* Minimalist Page Header */}
         <div className="mb-8 animate-fade-in">
           <div className="flex items-center gap-2.5">
             <span className="text-2xl">📝</span>
@@ -256,7 +344,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex border-b border-slate-200 gap-6 overflow-x-auto whitespace-nowrap">
+        <div className="flex border-b border-slate-200 mb-8 gap-6 overflow-x-auto whitespace-nowrap">
           <button onClick={() => setActiveTab("analyzer")} className={`pb-3 text-sm font-bold border-b-2 transition-all ${activeTab === "analyzer" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-400"}`}>📝 Text Analyzer</button>
           {username && (
             <>
@@ -270,33 +358,74 @@ export default function DashboardPage() {
         {activeTab === "analyzer" && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             
-            {/* Kolom Kiri: Input Area */}
+            {/* Kolom Kiri: Input Area atau Document Highlight Viewer */}
             <div className="lg:col-span-2 space-y-4">
               <div className="bg-white border border-slate-200/60 rounded-2xl p-4 sm:p-6 shadow-sm">
                 <div className="flex justify-between items-center mb-3">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Kotak Pengujian Teks</span>
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    {result ? "Hasil Pemindaian Dokumen" : "Kotak Pengujian Teks"}
+                  </span>
                   <span className="text-[10px] text-slate-400">{charCount} Karakter | {wordCount} Kata</span>
                 </div>
-                <textarea
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                  placeholder="Ketik atau tempel artikel Anda di sini... (Disarankan minimal 2 paragraf)"
-                  className="w-full h-80 p-4 border border-slate-200 rounded-xl outline-none resize-none text-sm text-slate-700 leading-relaxed transition-all"
-                />
-                <button
-                  onClick={handleDetect}
-                  disabled={loading}
-                  className="w-full mt-4 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm uppercase tracking-wider transition-all disabled:bg-slate-300 disabled:cursor-not-allowed"
-                >
-                  {loading ? "Sedang Menganalisis..." : "Eksekusi Pengujian"}
-                </button>
+                
+                {/* DYNAMIC VIEW: Tampilkan Textarea atau Highlighted Viewer */}
+                {!result ? (
+                  <textarea
+                    value={text}
+                    onChange={(e) => setText(e.target.value)}
+                    placeholder="Ketik atau tempel artikel Anda di sini... (Disarankan minimal 2 paragraf)"
+                    className="w-full h-80 p-4 border border-slate-200 rounded-xl outline-none resize-none text-sm text-slate-700 leading-relaxed transition-all"
+                  />
+                ) : (
+                  <div className="space-y-4 animate-fade-in">
+                    {/* Panel Dokumen dengan Highlight */}
+                    <div className="w-full h-80 p-4 border border-slate-200 rounded-xl overflow-y-auto text-sm bg-[#fafafa] leading-relaxed select-text">
+                      {renderHighlightedText()}
+                    </div>
+                    {/* Kontrol Toggle Highlight */}
+                    <div className="flex items-center justify-between px-1">
+                      <span className="text-[10px] text-slate-400">* Sentuh kalimat berwarna untuk melihat alasan indikasi mesin.</span>
+                      <label className="inline-flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-600">
+                        <input 
+                          type="checkbox" 
+                          checked={enableHighlight}
+                          onChange={() => setEnableHighlight(!enableHighlight)}
+                          className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                        />
+                        Highlight Indikasi AI
+                      </label>
+                    </div>
+                  </div>
+                )}
+
+                {/* Tombol Kontrol: Eksekusi atau Uji Ulang */}
+                {!result ? (
+                  <button
+                    onClick={handleDetect}
+                    disabled={loading}
+                    className="w-full mt-4 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm uppercase tracking-wider transition-all disabled:bg-slate-300 disabled:cursor-not-allowed"
+                  >
+                    {loading ? "Sedang Menganalisis..." : "Eksekusi Pengujian"}
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setResult(null);
+                      setText("");
+                      setShowFeedbackForm(false);
+                    }}
+                    className="w-full mt-4 py-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-sm uppercase tracking-wider transition-all"
+                  >
+                    🔄 Lakukan Uji Ulang Teks Baru
+                  </button>
+                )}
               </div>
               <AlertCallout message="Dashboard analisis ini mengintegrasikan ekstraksi bobot kata TF-IDF dengan metriks Stilometri struktural teks untuk mengidentifikasi kepenulisan secara menyeluruh." />
             </div>
 
-            {/* Kolom Kanan: Hasil & Penjelasan Diagnostik */}
+            {/* Kolom Kanan: Hasil & Penjelasan Diagnostik (EXPANDABLE / SEE MORE PANEL) */}
             <div className="space-y-6">
-              <div className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm min-h-87.5 flex flex-col justify-between">
+              <div className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm min-h-[350px] flex flex-col justify-between">
                 {loading ? (
                   <ScannerLoader />
                 ) : result ? (
@@ -324,52 +453,117 @@ export default function DashboardPage() {
                       </div>
                     </div>
 
-                    {/* Komparasi Metrik Stilometri */}
-                    <div className="pt-4 border-t border-slate-100 space-y-4">
-                      <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Komparasi Tolok Ukur Gaya:</h4>
-                      
-                      <div className="space-y-1.5 text-xs">
-                        <div className="flex justify-between text-[11px]">
-                          <span className="text-slate-500">Panjang Kalimat Rata-rata</span>
-                          <span className="font-bold text-slate-700">{result.stylometry.avg_sent_len}</span>
-                        </div>
-                        <div className="relative w-full h-1.5 bg-slate-100 rounded-full">
-                          <div className="absolute left-[30%] right-[50%] h-full bg-rose-200/50" />
-                          <div className="absolute left-[60%] right-[10%] h-full bg-emerald-200/50" />
-                          <div 
-                            className="absolute w-3 h-3 bg-indigo-600 border border-white rounded-full -top-0.5 shadow-sm transition-all duration-500" 
-                            style={{ left: `${Math.min(100, (currentAvgSentLen / 30) * 100)}%` }}
-                          />
-                        </div>
-                      </div>
+                    {/* TOMBOL "SEE MORE" (KONTROL EXPANDABLE DETAIL) */}
+                    <button
+                      onClick={() => setShowDetails(!showDetails)}
+                      className="w-full py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-500 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5"
+                    >
+                      {showDetails ? "Sembunyikan Rincian Laporan ▲" : "Tampilkan Rincian Laporan ▼"}
+                    </button>
 
-                      <div className="space-y-1.5 text-xs">
-                        <div className="flex justify-between text-[11px]">
-                          <span className="text-slate-500">Kekayaan Kosakata (Lexical Diversity)</span>
-                          <span className="font-bold text-slate-700">{result.stylometry.lex_div}</span>
-                        </div>
-                        <div className="relative w-full h-1.5 bg-slate-100 rounded-full">
-                          <div className="absolute left-[60%] right-[25%] h-full bg-rose-200/50" />
-                          <div className="absolute left-[80%] right-[5%] h-full bg-emerald-200/50" />
-                          <div 
-                            className="absolute w-3 h-3 bg-indigo-600 border border-white rounded-full -top-0.5 shadow-sm transition-all duration-500" 
-                            style={{ left: `${currentLexDiv}%` }}
-                          />
-                        </div>
-                      </div>
-                    </div>
+                    {/* AREA DETAIL: Hanya muncul jika showDetails === true */}
+                    {showDetails && (
+                      <div className="space-y-6 pt-4 border-t border-slate-100 animate-fade-in">
+                        
+                        {/* Eksplanasi Logika Model (XAI) */}
+                         <div className="p-4 bg-slate-50 border border-slate-150 rounded-xl space-y-2 text-xs">
+                            <div className="flex items-center gap-2 font-bold text-slate-700">
+                              <span className="text-sm">🔍</span>
+                              <span className="uppercase tracking-wider text-[10px]">Eksplanasi Logika Model:</span>
+                            </div>
+                            <p className="text-slate-500 leading-relaxed">
+                              {getDynamicExplanation()} {/* <--- Memanggil fungsi dinamis baru */}
+                            </p>
+                          </div>
 
-                    {/* Pemindai Kata Kunci AI */}
-                    {detectedAiWords.length > 0 && (
-                      <div className="pt-4 border-t border-slate-100 space-y-2">
-                        <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Deteksi Kata Kunci Favorit AI (TF-IDF):</h4>
-                        <div className="flex flex-wrap gap-1.5">
-                          {detectedAiWords.map((word, idx) => (
-                            <span key={idx} className="px-2 py-1 bg-rose-50 border border-rose-100/50 text-rose-700 rounded-md text-[10px] font-bold uppercase tracking-wider">
-                              {word}
-                            </span>
-                          ))}
+                        {/* Metrik Stilometri */}
+                        <div className="space-y-5">
+                          <div className="flex justify-between items-center">
+                            <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Komparasi Tolok Ukur Gaya:</h4>
+                            <span className="text-[9px] font-bold text-slate-400">Acuan: AI [Merah] | Manusia [Hijau]</span>
+                          </div>
+                          
+                          {/* Parameter 1: Panjang Kalimat */}
+                          <div className="space-y-2 text-xs">
+                            <div className="flex justify-between text-[11px]">
+                              <span className="text-slate-500 font-semibold">Panjang Kalimat Rata-rata</span>
+                              <span className="font-bold text-slate-700">{result.stylometry.avg_sent_len}</span>
+                            </div>
+                            <div className="relative w-full h-1.5 bg-slate-100 rounded-full">
+                              <div className="absolute left-[30%] right-[50%] h-full bg-rose-200/50" />
+                              <div className="absolute left-[60%] right-[10%] h-full bg-emerald-200/50" />
+                              <div 
+                                className="absolute w-3 h-3 bg-indigo-600 border border-white rounded-full -top-0.5 shadow-md transition-all duration-500" 
+                                style={{ left: `${Math.min(100, (currentAvgSentLen / 30) * 100)}%` }}
+                              />
+                            </div>
+                            <p className={`text-[10px] font-medium leading-tight px-2.5 py-1 rounded-md bg-slate-50 border border-slate-100 ${
+                              currentAvgSentLen >= 18 ? "text-emerald-700" : "text-rose-600"
+                            }`}>
+                              * {sentLenDiag}
+                            </p>
+                          </div>
+
+                          {/* Parameter 2: Keberagaman Kosakata */}
+                          <div className="space-y-2 text-xs pt-2">
+                            <div className="flex justify-between text-[11px]">
+                              <span className="text-slate-500 font-semibold">Kekayaan Kosakata (Lexical Diversity)</span>
+                              <span className="font-bold text-slate-700">{result.stylometry.lex_div}</span>
+                            </div>
+                            <div className="relative w-full h-1.5 bg-slate-100 rounded-full">
+                              <div className="absolute left-[60%] right-[25%] h-full bg-rose-200/50" />
+                              <div className="absolute left-[80%] right-[5%] h-full bg-emerald-200/50" />
+                              <div 
+                                className="absolute w-3 h-3 bg-indigo-600 border border-white rounded-full -top-0.5 shadow-md transition-all duration-500" 
+                                style={{ left: `${currentLexDiv}%` }}
+                              />
+                            </div>
+                            <p className={`text-[10px] font-medium leading-tight px-2.5 py-1 rounded-md bg-slate-50 border border-slate-100 ${
+                              currentLexDiv >= 75 ? "text-emerald-700" : "text-rose-600"
+                            }`}>
+                              * {lexDivDiag}
+                            </p>
+                          </div>
+
+                          {/* Parameter 3: Kerapatan Tanda Baca */}
+                          <div className="space-y-2 text-xs pt-2">
+                            <div className="flex justify-between text-[11px]">
+                              <span className="text-slate-500 font-semibold">Kerapatan Tanda Baca</span>
+                              <span className="font-bold text-slate-700">{result.stylometry.punct_dens}</span>
+                            </div>
+                            <div className="relative w-full h-1.5 bg-slate-100 rounded-full">
+                              <div className="absolute left-[25%] right-[60%] h-full bg-rose-200/50" />
+                              <div className="absolute left-[45%] right-[20%] h-full bg-emerald-200/50" />
+                              <div 
+                                className="absolute w-3 h-3 bg-indigo-600 border border-white rounded-full -top-0.5 shadow-md transition-all duration-500" 
+                                style={{ left: `${Math.min(100, (currentPunctDens / 10) * 100)}%` }}
+                              />
+                            </div>
+                            <p className={`text-[10px] font-medium leading-tight px-2.5 py-1 rounded-md bg-slate-50 border border-slate-100 ${
+                              currentPunctDens >= 4.5 ? "text-emerald-700" : "text-rose-600"
+                            }`}>
+                              * {punctDensDiag}
+                            </p>
+                          </div>
                         </div>
+
+                        {/* Pemindai Kata Kunci AI (TF-IDF) */}
+                        {detectedAiWords.length > 0 && (
+                          <div className="space-y-2">
+                            <div className="space-y-0.5">
+                              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Bobot Kosakata Mesin (TF-IDF):</h4>
+                              <p className="text-[9px] text-slate-400">Kata di bawah ini menyumbang bobot tinggi ke arah klasifikasi AI pada dataset.</p>
+                            </div>
+                            <div className="flex flex-wrap gap-1.5 pt-1">
+                              {detectedAiWords.map((word, idx) => (
+                                <span key={idx} className="px-2.5 py-1 bg-rose-50 border border-rose-100/50 text-rose-700 rounded-lg text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                                  {word}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -377,7 +571,7 @@ export default function DashboardPage() {
                     <div className="pt-4 border-t border-slate-100">
                       <button 
                         onClick={handlePrintPDF}
-                        className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2"
+                        className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-sm"
                       >
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                         Cetak Laporan PDF Resmi
@@ -443,9 +637,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* ============================================================================== */}
-        {/* 2. TAB RIWAYAT (TABEL RESPONSIF SEPENUHNYA - BEBAS MEPET DI MOBILE) */}
-        {/* ============================================================================== */}
+        {/* 2. TAB RIWAYAT */}
         {activeTab === "history" && (
           <div className="bg-white border border-slate-200/60 rounded-2xl p-4 sm:p-6 shadow-sm overflow-hidden animate-fade-in flex flex-col justify-between min-h-100">
             <div>
@@ -453,9 +645,7 @@ export default function DashboardPage() {
               {history.length === 0 ? (
                 <div className="text-center py-12 text-slate-400 text-sm">Belum ada riwayat pengujian yang tercatat.</div>
               ) : (
-                /* SOLUSI MOBILE: Gunakan -mx-4 sm:-mx-6 & px-4 sm:px-6 untuk jarak tepi yang seimbang */
                 <div className="overflow-x-auto -mx-4 sm:-mx-6 px-4 sm:px-6">
-                  {/* Gunakan min-w-175 (700px) agar kolom memiliki ruang gerak yang luas saat digeser di HP */}
                   <table className="w-full text-left text-sm text-slate-600 min-w-175">
                     <thead>
                       <tr className="border-b border-slate-100 text-slate-400 text-xs font-bold uppercase tracking-wider">
@@ -469,7 +659,6 @@ export default function DashboardPage() {
                       {currentHistoryRows.map((item) => (
                         <tr key={item.id} className="hover:bg-slate-50/50">
                           <td className="py-4 text-xs font-medium text-slate-400 whitespace-nowrap pl-2">{item.created_at}</td>
-                          {/* Sembunyikan nama dengan batas max-w-[150px] agar tidak menekan kolom lain di HP */}
                           <td className="py-4 font-medium text-slate-700 max-w-[150px] sm:max-w-xs truncate" title={item.input_text}>
                             {item.input_text}
                           </td>
@@ -516,33 +705,26 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* ============================================================================== */}
-        {/* 3. TAB STATISTICS (DENGAN VISUALISASI GRAFIK BAR & DONUT KOMPREHENSIF) */}
-        {/* ============================================================================== */}
+        {/* 3. TAB STATISTICS */}
         {activeTab === "stats" && (() => {
-          // --- ALGORITMA MATEMATIKA LOKAL UNTUK MEMBANGUN GRAFIK ---
           const totalPredictions = history.length;
           const aiScansCount = history.filter(h => h.prediction_result === "AI").length;
           const humanScansCount = totalPredictions - aiScansCount;
           const aiPercentageLocal = totalPredictions > 0 ? (aiScansCount / totalPredictions) * 100 : 0;
           
-          // Keliling lingkaran donut = 2 * pi * r (r = 40, Keliling = 251.2)
           const strokeDashArray = 251.2;
           const strokeDashOffset = strokeDashArray - (strokeDashArray * aiPercentageLocal) / 100;
 
-          // Memetakan aktivitas 7 hari terakhir secara dinamis berdasarkan data 'history'
           const getDailyActivity = () => {
             const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
             const activityMap: Record<string, number> = {};
             
-            // Inisialisasi 7 hari ke belakang dengan nilai 0
             for (let i = 6; i >= 0; i--) {
               const d = new Date();
               d.setDate(d.getDate() - i);
               activityMap[daysOfWeek[d.getDay()]] = 0;
             }
             
-            // Hitung frekuensi data dari riwayat
             history.forEach(item => {
               try {
                 const dateParsed = new Date(item.created_at.replace(" ", "T"));
