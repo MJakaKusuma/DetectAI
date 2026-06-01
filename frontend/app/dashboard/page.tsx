@@ -10,6 +10,10 @@ interface StylometryData {
   avg_sent_len: string;
   lex_div: string;
   punct_dens: string;
+  sent_len_var: string;
+  noun_dens: string;    
+  verb_dens: string;    
+  adj_dens: string;     
 }
 
 interface PredictionResponse {
@@ -170,8 +174,14 @@ export default function DashboardPage() {
   const currentAvgSentLen = result ? getStyleNumber(result.stylometry.avg_sent_len) : 0;
   const currentLexDiv = result ? getStyleNumber(result.stylometry.lex_div) : 0;
   const currentPunctDens = result ? getStyleNumber(result.stylometry.punct_dens) : 0;
+  
+  // 4 PARAMETER BARU UNTUK INTEGRASI (NLP-ID & NUMPY)
+  const currentSentLenVar = result ? getStyleNumber(result.stylometry.sent_len_var) : 0;
+  const currentNounDens = result ? getStyleNumber(result.stylometry.noun_dens) : 0;
+  const currentVerbDens = result ? getStyleNumber(result.stylometry.verb_dens) : 0;
+  const currentAdjDens = result ? getStyleNumber(result.stylometry.adj_dens) : 0;
 
-  // --- LOGIKA DIAGNOSTIK ANALISIS DINAMIS CERDAS (XAI) ---
+  // --- LOGIKA DIAGNOSTIK ANALISIS DINAMIS CERDAS (XAI 1.007 FITUR) ---
   const sentLenDiag = currentAvgSentLen >= 18 
     ? "Gaya Manusia (Dinamis): Kalimat Anda panjang dan mengalir alami." 
     : "Gaya AI (Monoton): Struktur kalimat cenderung pendek dan seragam.";
@@ -184,6 +194,11 @@ export default function DashboardPage() {
     ? "Penggunaan tanda baca ekspresif dan bervariasi." 
     : "Penggunaan tanda baca sangat baku dan kaku.";
 
+  // DIAGNOSTIK BARU UNTUK BURSTINESS
+  const sentVarDiag = currentSentLenVar >= 5.0
+    ? "Gaya Manusia (Burstiness Tinggi): Variasi panjang antar kalimat sangat dinamis dan alami."
+    : "Gaya AI (Monoton): Selisih panjang antar kalimat sangat kaku dan seragam.";
+
   // ==============================================================================
   // LOGIKA BARU: DESAIN EKSPLANASI DINAMIS DISKUSI FITUR (ANTI-CONTRADICTION)
   // ==============================================================================
@@ -194,9 +209,9 @@ export default function DashboardPage() {
     const isSentLenHuman = currentAvgSentLen >= 18;
     const isLexDivHuman = currentLexDiv >= 75;
     const isPunctHuman = currentPunctDens >= 4.5;
-    
-    const humanStyleScore = (isSentLenHuman ? 1 : 0) + (isLexDivHuman ? 1 : 0) + (isPunctHuman ? 1 : 0);
+    const isBurstinessHuman = currentSentLenVar >= 5.0;
 
+    const humanStyleScore = (isSentLenHuman ? 1 : 0) + (isLexDivHuman ? 1 : 0) + (isPunctHuman ? 1 : 0) + (isBurstinessHuman ? 1 : 0);
     if (isAI) {
       if (humanStyleScore >= 2) {
         return `Model mendeteksi teks ini sebagai buatan AI terutama didorong oleh pengaruh kuat pembobotan kata leksikal (TF-IDF). Meskipun struktur gaya bahasa Anda (seperti panjang kalimat dan kekayaan kata) secara statistik menunjukkan karakteristik alami manusia, penggunaan kata-kata kunci formal khas mesin tetap mengarahkan model pada klasifikasi AI.`;
@@ -631,15 +646,16 @@ export default function DashboardPage() {
                     )}
 
                     {/* TAB 2: STILOMETRI (3 METERAN GAYA BAHASA) */}
+                    {/* TAB 2: STILOMETRI (4 SLIDER GAYA BAHASA + 3 KAPSUL POS DENSITY - ANTI-SCROLL) */}
                     {resultTab === "stylometry" && (
-                      <div className="space-y-4 animate-fade-in">
+                      <div className="space-y-4.5 animate-fade-in">
                         <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase pb-1 border-b border-slate-50">
-                          <span>Metrik Stilometri</span>
+                          <span>Metrik Stilometri (7 Fitur)</span>
                           <span>Acuan: AI [Merah] | Manusia [Hijau]</span>
                         </div>
                         
                         {/* Parameter 1: Panjang Kalimat */}
-                        <div className="space-y-1.5 text-xs">
+                        <div className="space-y-1 text-xs">
                           <div className="flex justify-between text-[11px]">
                             <span className="text-slate-500 font-semibold">Panjang Kalimat Rata-rata</span>
                             <span className="font-bold text-slate-700">{result.stylometry.avg_sent_len}</span>
@@ -652,13 +668,13 @@ export default function DashboardPage() {
                               style={{ left: `${Math.min(100, (currentAvgSentLen / 30) * 100)}%` }}
                             />
                           </div>
-                          <p className={`text-[10px] italic leading-tight px-2.5 py-1 rounded-md bg-slate-50 border border-slate-100 ${currentAvgSentLen >= 18 ? "text-emerald-700" : "text-rose-600"}`}>
-                            {sentLenDiag}
+                          <p className={`text-[9px] font-medium leading-tight ${currentAvgSentLen >= 18 ? "text-emerald-600" : "text-rose-500"}`}>
+                            * {sentLenDiag}
                           </p>
                         </div>
 
                         {/* Parameter 2: Keberagaman Kosakata */}
-                        <div className="space-y-1.5 text-xs pt-1">
+                        <div className="space-y-1 text-xs pt-0.5">
                           <div className="flex justify-between text-[11px]">
                             <span className="text-slate-500 font-semibold">Kekayaan Kosakata</span>
                             <span className="font-bold text-slate-700">{result.stylometry.lex_div}</span>
@@ -671,13 +687,13 @@ export default function DashboardPage() {
                               style={{ left: `${currentLexDiv}%` }}
                             />
                           </div>
-                          <p className={`text-[10px] italic leading-tight px-2.5 py-1 rounded-md bg-slate-50 border border-slate-100 ${currentLexDiv >= 75 ? "text-emerald-700" : "text-rose-600"}`}>
-                            {lexDivDiag}
+                          <p className={`text-[9px] font-medium leading-tight ${currentLexDiv >= 75 ? "text-emerald-600" : "text-rose-500"}`}>
+                            * {lexDivDiag}
                           </p>
                         </div>
 
                         {/* Parameter 3: Kerapatan Tanda Baca */}
-                        <div className="space-y-1.5 text-xs pt-1">
+                        <div className="space-y-1 text-xs pt-0.5">
                           <div className="flex justify-between text-[11px]">
                             <span className="text-slate-500 font-semibold">Kerapatan Tanda Baca</span>
                             <span className="font-bold text-slate-700">{result.stylometry.punct_dens}</span>
@@ -690,13 +706,56 @@ export default function DashboardPage() {
                               style={{ left: `${Math.min(100, (currentPunctDens / 10) * 100)}%` }}
                             />
                           </div>
-                          <p className={`text-[10px] italic leading-tight px-2.5 py-1 rounded-md bg-slate-50 border border-slate-100 ${currentPunctDens >= 4.5 ? "text-emerald-700" : "text-rose-600"}`}>
-                            {punctDensDiag}
+                          <p className={`text-[9px] font-medium leading-tight ${currentPunctDens >= 4.5 ? "text-emerald-600" : "text-rose-500"}`}>
+                            * {punctDensDiag}
                           </p>
                         </div>
+
+                        {/* Parameter 4: BURSTINESS / VARIABILITAS PANJANG KALIMAT */}
+                        <div className="space-y-1 text-xs pt-0.5">
+                          <div className="flex justify-between text-[11px]">
+                            <span className="text-slate-500 font-semibold">Variabilitas Kalimat (Burstiness)</span>
+                            <span className="font-bold text-slate-700">{result.stylometry.sent_len_var}</span>
+                          </div>
+                          <div className="relative w-full h-1 bg-slate-100 rounded-full">
+                            {/* Batasan Rata-rata AI (1.0 - 3.5 sd pada skala 10) */}
+                            <div className="absolute left-[10%] right-[65%] h-full bg-rose-200/50" />
+                            {/* Batasan Rata-rata Manusia (4.5 - 9.0 sd pada skala 10) */}
+                            <div className="absolute left-[45%] right-[10%] h-full bg-emerald-200/50" />
+                            <div 
+                              className="absolute w-2.5 h-2.5 bg-indigo-600 border border-white rounded-full -top-0.5 shadow-sm transition-all" 
+                              style={{ left: `${Math.min(100, (currentSentLenVar / 10) * 100)}%` }} 
+                            />
+                          </div>
+                          <p className={`text-[9px] font-medium leading-tight ${currentSentLenVar >= 5.0 ? "text-emerald-600" : "text-rose-500"}`}>
+                            * {sentVarDiag}
+                          </p>
+                        </div>
+
+                        {/* DISTRIBUSI KELAS KATA / POS DENSITY (NOMINA, VERBA, ADJEKTIVA) */}
+                        <div className="pt-3 border-t border-slate-100 space-y-2">
+                          <h4 className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Komposisi Kelas Kata (POS Distribution):</h4>
+                          <div className="grid grid-cols-3 gap-2 text-center text-[10px]">
+                            {/* Kapsul 1: Noun */}
+                            <div className="p-2 bg-indigo-50/50 border border-indigo-100/60 rounded-xl space-y-0.5">
+                              <span className="block font-semibold text-slate-400">NOMINA (Benda)</span>
+                              <span className="block font-extrabold text-indigo-700 text-xs">{result.stylometry.noun_dens}</span>
+                            </div>
+                            {/* Kapsul 2: Verb */}
+                            <div className="p-2 bg-emerald-50/50 border border-emerald-100/60 rounded-xl space-y-0.5">
+                              <span className="block font-semibold text-slate-400">VERBA (Kerja)</span>
+                              <span className="block font-extrabold text-emerald-700 text-xs">{result.stylometry.verb_dens}</span>
+                            </div>
+                            {/* Kapsul 3: Adj */}
+                            <div className="p-2 bg-rose-50/50 border border-rose-100/60 rounded-xl space-y-0.5">
+                              <span className="block font-semibold text-slate-400">ADJEKTIVA (Sifat)</span>
+                              <span className="block font-extrabold text-rose-700 text-xs">{result.stylometry.adj_dens}</span>
+                            </div>
+                          </div>
+                        </div>
+
                       </div>
                     )}
-
                     {/* TAB 3: KOSAKATA (TF-IDF CLUES & MATH EXPLANATION) */}
                     {/* ============================================================================== */}
                     {/* TAB 3: KOSAKATA (TF-IDF CLUES & MATH EXPLANATION) — VERSI RESPONSIF DAN RAPI */}

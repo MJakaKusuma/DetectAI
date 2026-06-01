@@ -202,7 +202,7 @@ async def predict(
 ):
     try:
         cleaned = clean_text(text_request.text)
-        style_feat = extract_stylometry(cleaned)
+        style_feat = extract_stylometry(cleaned).values.reshape(1, -1)
         tfidf_feat = tfidf.transform([cleaned]).toarray()
         combined = np.hstack((tfidf_feat, style_feat))
         
@@ -216,6 +216,10 @@ async def predict(
         raw_avg_sent = float(style_feat[0][0])
         raw_lex_div = float(style_feat[0][1])
         raw_punct_dens = float(style_feat[0][2])
+        raw_sent_len_var = float(style_feat[0][3])
+        raw_noun_dens = float(style_feat[0][4])
+        raw_verb_dens = float(style_feat[0][5])
+        raw_adj_dens = float(style_feat[0][6])
 
         logged_user_id = None
         authorization = request.headers.get("Authorization")
@@ -257,7 +261,11 @@ async def predict(
             "stylometry": {
                 "avg_sent_len": f"{raw_avg_sent:.1f} kata/kalimat",
                 "lex_div": f"{raw_lex_div * 100:.1f}% kosakata unik",
-                "punct_dens": f"{raw_punct_dens * 100:.1f}% kerapatan tanda baca"
+                "punct_dens": f"{raw_punct_dens * 100:.1f}% kerapatan tanda baca",
+                "sent_len_var": f"{raw_sent_len_var:.1f} standar deviasi",
+                "noun_dens": f"{raw_noun_dens * 100:.1f}% kata benda",
+                "verb_dens": f"{raw_verb_dens * 100:.1f}% kata kerja",
+                "adj_dens": f"{raw_adj_dens * 100:.1f}% kata sifat"
             },
             "ai_keywords": global_ai_keywords
         }
@@ -497,7 +505,7 @@ async def retrain_model(
         global model, tfidf
         model = joblib.load('models/logistic_model.pkl')
         tfidf = joblib.load('models/tfidf_vectorizer.pkl')
-
+        update_global_ai_keywords() # Perbarui kata kunci AI dinamis setelah retraining
         # H. UPDATE DATABASE (Nonaktifkan model lama, aktifkan model hibrida baru)
         db.query(ModelVersion).update({ModelVersion.is_active: False})
         
@@ -589,6 +597,8 @@ async def activate_model_version(
         global model, tfidf
         model = joblib.load('models/logistic_model.pkl')
         tfidf = joblib.load('models/tfidf_vectorizer.pkl')
+        
+        update_global_ai_keywords()
         
         db.query(ModelVersion).update({ModelVersion.is_active: False})
         target_model.is_active = True
