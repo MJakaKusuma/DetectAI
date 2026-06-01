@@ -698,96 +698,102 @@ export default function DashboardPage() {
                     )}
 
                     {/* TAB 3: KOSAKATA (TF-IDF CLUES & MATH EXPLANATION) */}
+                    {/* ============================================================================== */}
+                    {/* TAB 3: KOSAKATA (TF-IDF CLUES & MATH EXPLANATION) — VERSI RESPONSIF DAN RAPI */}
+                    {/* ============================================================================== */}
                     {resultTab === "tfidf" && (
                       <div className="space-y-4 animate-fade-in">
                         {detectedAiWords.length > 0 ? (
                           <div className="space-y-3">
                             <div className="space-y-0.5">
                               <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Leksikal Analisis (TF-IDF Clues):</h4>
-                              <p className="text-[9px] text-slate-400">Kata penanda AI terdeteksi di dalam dokumen Anda:</p>
+                              <p className="text-[9px] text-slate-400">Pola kosakata mesin yang terdeteksi di dalam dokumen Anda:</p>
                             </div>
-                            <div className="grid grid-cols-2 gap-1.5">
-                              {detectedAiWords.length > 0 && result && (
-                      <div className="pt-4 border-t border-slate-100 space-y-3.5">
-                        
-                        <div className="space-y-0.5">
-                          <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Analisis Leksikal (TF-IDF Clues):</h4>
-                          <p className="text-[9px] text-slate-400 leading-relaxed">
-                            Kosakata di bawah ini terdeteksi memiliki bobot kemunculan mesin berdasarkan 3 tingkat signifikansi matematika.
-                          </p>
-                        </div>
-                        
-                        {/* Tampilan Grid Kata Berwarna Dinamis Berdasarkan Posisi Peringkat */}
-                        <div className="grid grid-cols-2 gap-2 pt-1">
-                          {detectedAiWords.map((item, idx) => {
-                            // Cari indeks aslinya di array 15 kata untuk menentukan peringkat
-                            const originalIndex = result.ai_keywords.findIndex(kw => kw.word === item.word);
                             
-                            let badgeText = "Low TF-IDF";
-                            let cardClass = "bg-slate-50 border-slate-150";
-                            let badgeClass = "bg-slate-100 text-slate-500";
-                            let textClass = "text-slate-700";
+                            {/* SOLUSI BEBAS GEPLAK: Gunakan grid-cols-1 untuk ruang horizontal yang luas */}
+                            <div className="grid grid-cols-1 gap-2.5 pt-1">
+                              {detectedAiWords.map((item, idx) => {
+                                // Cari indeks asli untuk menentukan peringkat signifikansi
+                                const originalIndex = result.ai_keywords.findIndex(kw => kw.word === item.word);
+                                
+                                let badgeText = "Low TF-IDF";
+                                let cardClass = "bg-slate-50/50 border-slate-150 border-l-slate-400";
+                                let badgeClass = "bg-slate-100 text-slate-400";
+                                let textClass = "text-slate-700";
 
-                            if (originalIndex < 5) {
-                              // Top 5: High Impact (Merah)
-                              badgeText = "High TF-IDF";
-                              cardClass = "bg-rose-50/50 border-rose-100/40 hover:bg-rose-50";
-                              badgeClass = "bg-rose-100/50 text-rose-500";
-                              textClass = "text-rose-700";
-                            } else if (originalIndex < 10) {
-                              // 6-10: Medium Impact (Oranye/Amber)
-                              badgeText = "Med TF-IDF";
-                              cardClass = "bg-amber-50/50 border-amber-100/40 hover:bg-amber-50";
-                              badgeClass = "bg-amber-100/50 text-amber-500";
-                              textClass = "text-amber-700";
-                            } else {
-                              // 11-15: Low Impact (Abu-abu/Slate)
-                              badgeText = "Low TF-IDF";
-                              cardClass = "bg-slate-50/50 border-slate-200/40 hover:bg-slate-100/50";
-                              badgeClass = "bg-slate-100 text-slate-400";
-                              textClass = "text-slate-500";
-                            }
+                                if (originalIndex < 5) {
+                                  // Top 5: High Impact (Merah)
+                                  badgeText = "High TF-IDF";
+                                  cardClass = "bg-rose-50/50 border-rose-100/40 border-l-rose-500 hover:bg-rose-50";
+                                  badgeClass = "bg-rose-100/50 text-rose-500";
+                                  textClass = "text-rose-700";
+                                } else if (originalIndex < 10) {
+                                  // 6-10: Medium Impact (Oranye/Amber)
+                                  badgeText = "Med TF-IDF";
+                                  cardClass = "bg-amber-50/50 border-amber-100/40 border-l-amber-500 hover:bg-amber-50";
+                                  badgeClass = "bg-amber-100/50 text-amber-500";
+                                  textClass = "text-amber-700";
+                                } else {
+                                  // 11-15: Low Impact (Abu-abu/Slate)
+                                  badgeText = "Low TF-IDF";
+                                  cardClass = "bg-slate-50/50 border-slate-200/40 border-l-slate-400 hover:bg-slate-100/50";
+                                  badgeClass = "bg-slate-100 text-slate-400";
+                                  textClass = "text-slate-500";
+                                }
 
-                            return (
-                              <div 
-                                key={idx} 
-                                className={`flex items-center justify-between p-2.5 border rounded-xl transition-all ${cardClass}`}
-                                title={`Kata "${item.word}" memiliki nilai koefisien model sebesar ${item.weight.toFixed(4)}.`}
-                              >
-                                <span className={`text-xs font-bold uppercase tracking-wide ${textClass}`}>{item.word}</span>
-                                <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider ${badgeClass}`}>
-                                  {badgeText}
-                                </span>
-                              </div>
-                            );
-                          })}
-                        </div>
-
-                        {/* Kotak Edukasi Teori */}
-                        <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl text-[10px] text-slate-400 leading-relaxed space-y-1">
-                          <p className="font-bold text-slate-600 uppercase tracking-wider text-[9px]">📊 Kategori Tingkat Pembobotan:</p>
-                          <p>
-                            Sistem membagi 15 kata kunci teratas menjadi 3 tingkatan: **High** (Bobot koefisien ≥ 85%), **Medium** (Bobot koefisien 50% - 84%), dan **Low** (Bobot koefisien di bawah 50%) berdasarkan nilai statistik asli dari otak model [1].
-                          </p>
-                        </div>
-
-                      </div>
-                    )}
+                                return (
+                                  /* Desain Premium dengan garis tebal di kiri (border-l-4) dan info koefisien */
+                                  <div 
+                                    key={idx} 
+                                    className={`flex items-center justify-between px-4 py-3 border border-l-4 rounded-r-xl rounded-l-md transition-all shadow-xs ${cardClass}`}
+                                    title={`Kata "${item.word}" memiliki nilai koefisien model sebesar ${item.weight.toFixed(4)}.`}
+                                  >
+                                    <div className="flex flex-col text-left">
+                                      <span className={`text-xs font-extrabold uppercase tracking-wider ${textClass}`}>{item.word}</span>
+                                      <span className="text-[9px] text-slate-400 mt-0.5 font-medium">Koefisien Bobot: {item.weight.toFixed(3)}</span>
+                                    </div>
+                                    <span className={`text-[8px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider whitespace-nowrap ${badgeClass}`}>
+                                      {badgeText}
+                                    </span>
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
                         ) : (
-                          <div className="text-center py-4 text-slate-400 text-xs">Tidak ada kosakata khas mesin yang dominan terdeteksi.</div>
+                          <div className="text-center py-12 text-slate-400 text-xs">Tidak ada kosakata khas mesin yang dominan terdeteksi.</div>
                         )}
 
-                        {/* Kotak Edukasi Teori */}
-                        <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl text-[10px] text-slate-400 leading-relaxed space-y-1">
-                          <p className="font-bold text-slate-600 uppercase tracking-wider text-[9px]">📊 Bagaimana TF-IDF Menilai Ini?</p>
-                          <p>
-                            Sistem mengalikan frekuensi kata pada dokumen ini (Term Frequency) dengan tingkat keunikan kata tersebut pada basis data master (Inverse Document Frequency). Kata di atas disorot karena secara statistik merupakan kosakata favorit yang sering diekstrak oleh model Gemma 4 dibanding data pembanding manusia.
-                          </p>
+                        {/* KOTAK EDUKASI TEORI TERPADU (SANGAT KOMPREHENSIF - DUAL INSIGHT) */}
+                        <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl text-[10px] text-slate-500 leading-relaxed space-y-3 text-left">
+                          
+                          {/* Bagian 1: Teori Rumus TF-IDF */}
+                          <div className="space-y-1">
+                            <p className="font-bold text-slate-700 uppercase tracking-wider text-[9px] flex items-center gap-1">
+                              <span>📊</span> Bagaimana TF-IDF Menilai Ini?
+                            </p>
+                            <p className="text-slate-500">
+                              Sistem mengalikan frekuensi kata pada dokumen ini (Term Frequency) dengan tingkat kelangkaan kata tersebut pada basis data master (Inverse Document Frequency). Kata di atas disorot karena secara statistik merupakan kosakata favorit yang sering diekstrak oleh model Gemma 4 dibanding data pembanding manusia.
+                            </p>
+                          </div>
+                          
+                          {/* Garis Pemisah Perak Tipis */}
+                          <div className="h-px bg-slate-200/60 w-full" />
+                          
+                          {/* Bagian 2: Teori Bobot Koefisien Model */}
+                          <div className="space-y-1">
+                            <p className="font-bold text-slate-700 uppercase tracking-wider text-[9px] flex items-center gap-1">
+                              <span>🎯</span> Kategori Tingkat Pembobotan:
+                            </p>
+                            <p className="text-slate-500">
+                              Sistem membagi 15 kata kunci teratas menjadi 3 tingkatan: High (Bobot koefisien tinggi), Medium (Bobot koefisien sedang), dan Low (Bobot koefisien rendah) berdasarkan nilai statistik asli dari koefisien keputusan model Regresi Logistik.
+                            </p>
+                          </div>
                         </div>
                       </div>
                     )}
+
+                        
 
                     {/* ========================== ACTIONS FOOTER ========================== */}
 
