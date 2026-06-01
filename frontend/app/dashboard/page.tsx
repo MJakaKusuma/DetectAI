@@ -883,6 +883,9 @@ export default function DashboardPage() {
         {/* ============================================================================== */}
         {/* 3. TAB STATISTICS (DENGAN VISUALISASI GRAFIK BAR & DONUT LENGKAP) */}
         {/* ============================================================================== */}
+        {/* ============================================================================== */}
+        {/* 3. TAB STATISTICS (DENGAN VISUALISASI GRAFIK BAR & DONUT PREMIUM) */}
+        {/* ============================================================================== */}
         {activeTab === "stats" && (() => {
           const totalPredictions = history.length;
           const aiScansCount = history.filter(h => h.prediction_result === "AI").length;
@@ -926,35 +929,61 @@ export default function DashboardPage() {
           return (
             <div className="space-y-8 animate-fade-in">
               
-              {/* Grid Statistik Angka */}
+              {/* Grid Statistik Angka (Dengan Ikon Mikro SVG Premium) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                
+                {/* Card 1: Total Pengujian */}
                 <StatCard 
                   title="Total Pengujian" 
                   value={totalScans} 
-                  icon={<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>} 
+                  icon={
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                      <rect x="3" y="4" width="18" height="16" rx="3" fill="#e0e7ff" stroke="#6366f1" strokeWidth="2" />
+                      <line x1="7" y1="9" x2="17" y2="9" stroke="#6366f1" strokeWidth="2" strokeLinecap="round" />
+                      <line x1="7" y1="13" x2="13" y2="13" stroke="#6366f1" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
+                  } 
                 />
+
+                {/* Card 2: Deteksi AI */}
                 <StatCard 
                   title="Deteksi AI" 
                   value={`${aiScansCount} Dokumen`} 
                   trend={aiRatio}
                   isPositive={false}
-                  icon={<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>} 
+                  icon={
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                      {/* Cip Mikro Chip */}
+                      <rect x="5" y="5" width="14" height="14" rx="3" fill="#ffe4e6" stroke="#f43f5e" strokeWidth="2" />
+                      <path d="M12,2 V5 M12,19 V22 M2,12 H5 M19,12 H22" stroke="#f43f5e" strokeWidth="2" strokeLinecap="round" />
+                      <circle cx="12" cy="12" r="3" fill="#f43f5e" className="animate-pulse" />
+                    </svg>
+                  } 
                 />
+
+                {/* Card 3: Deteksi Manusia */}
                 <StatCard 
                   title="Deteksi Manusia" 
                   value={`${humanScansCount} Dokumen`} 
-                  icon={<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>} 
+                  icon={
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                      {/* Ujung Pena Kaligrafi */}
+                      <path d="M12,4 L7,13 C7,13 10,14 12,17 C14,14 17,13 17,13 Z" fill="#d1fae5" stroke="#10b981" strokeWidth="2" />
+                      <line x1="12" y1="4" x2="12" y2="13" stroke="#10b981" strokeWidth="2" strokeLinecap="round" />
+                      <circle cx="12" cy="13" r="2" fill="#10b981" />
+                    </svg>
+                  } 
                 />
               </div>
 
-              {/* PANEL GRAFIK INTEGRASI (RESPONSIF & DETAIL) */}
+              {/* PANEL GRAFIK INTEGRASI */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 
                 {/* GRAFIK 1: Aktivitas Deteksi 7 Hari Terakhir */}
                 <div className="lg:col-span-2 bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
                   <div>
                     <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider mb-2">Tren Aktivitas Deteksi Anda</h3>
-                    <p className="text-[10px] text-slate-400 mb-6">Kalkulasi total pengujian teks yang Anda lakukan dalam 7 hari terakhir.</p>
+                    <p className="text-[10px] text-slate-400 mb-6 font-medium">Kalkulasi total pengujian teks yang Anda lakukan dalam 7 hari terakhir.</p>
                   </div>
 
                   {/* Rangka Batang */}
@@ -988,7 +1017,19 @@ export default function DashboardPage() {
                   {/* Donut Chart SVG */}
                   <div className="relative flex justify-center items-center py-6">
                     {totalPredictions === 0 ? (
-                      <div className="text-xs text-slate-400 text-center py-12">Belum ada riwayat klasifikasi.</div>
+                      // 100% NATIVE NO-DATA INTERACTIVE AD-HOC GRAPHICS
+                      <div className="text-center py-6 text-slate-400 space-y-4 flex flex-col items-center">
+                        <svg width="120" height="120" viewBox="0 0 120 120" fill="none">
+                          <circle cx="60" cy="60" r="35" stroke="#f1f5f9" strokeWidth="8" strokeDasharray="4,4" />
+                          <rect x="45" y="45" width="30" height="30" rx="6" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="2" />
+                          <line x1="53" y1="55" x2="67" y2="55" stroke="#cbd5e1" strokeWidth="2" strokeLinecap="round" />
+                          <line x1="53" y1="61" x2="61" y2="61" stroke="#cbd5e1" strokeWidth="2" strokeLinecap="round" />
+                          {/* Kaca Pembesar Kecil */}
+                          <circle cx="75" cy="75" r="10" fill="#f8fafc" stroke="#6366f1" strokeWidth="2" />
+                          <line x1="82" y1="82" x2="92" y2="92" stroke="#6366f1" strokeWidth="2" strokeLinecap="round" />
+                        </svg>
+                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Belum Ada Riwayat Klasifikasi</p>
+                      </div>
                     ) : (
                       <>
                         <svg width="150" height="150" className="-rotate-90">
@@ -1005,6 +1046,7 @@ export default function DashboardPage() {
                             className="transition-all duration-700"
                           />
                         </svg>
+                        {/* Teks Persentase di Tengah Donut */}
                         <div className="absolute flex flex-col items-center">
                           <span className="text-xl font-black text-slate-800">{aiPercentageLocal.toFixed(0)}%</span>
                           <span className="text-[9px] text-slate-400 uppercase font-bold">Deteksi AI</span>
@@ -1031,7 +1073,6 @@ export default function DashboardPage() {
             </div>
           );
         })()}
-
       </div>
     </div>
   );
