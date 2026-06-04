@@ -49,36 +49,104 @@ export default function AboutPage() {
 
       </section>
 
-      {/* Rincian 3 Metrik Stilometri */}
-      <section className="bg-white border border-slate-200/60 rounded-2xl p-8 shadow-sm space-y-8">
-        <div>
-          <h3 className="text-lg font-bold text-slate-800 mb-1">3 Metrik Stilometri yang Diekstrak</h3>
-          <p className="text-xs text-slate-400">Tiga parameter statistik utama yang digunakan oleh model Regresi Logistik kami untuk mengidentifikasi gaya bahasa:</p>
+      {/* ============================================================================== */}
+      {/* RINCIAN 7 METRIK STILOMETRI YANG DIEKSTRAK (VERSI KOMPREHENSIF) */}
+      {/* ============================================================================== */}
+      <section className="bg-white border border-slate-200/60 rounded-2xl p-6 sm:p-8 shadow-sm space-y-8 animate-fade-in">
+        <div className="space-y-1">
+          <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest bg-indigo-50 px-2.5 py-1 rounded-md">Feature Details</span>
+          <h3 className="text-xl font-black text-slate-800 pt-1">7 Metrik Stilometri yang Diekstrak</h3>
+          <p className="text-xs text-slate-400">Tujuh parameter statistik dan kelas kata utama yang diproses oleh model Regresi Logistik kami untuk mengidentifikasi sidik jari linguistik:</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Grid Responsif (cols-1 di HP, cols-2 di Tablet, cols-3 di Laptop) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           
+          {/* ========================== KELOMPOK 1: METRIK STRUKTURAL ========================== */}
+
           {/* Metrik 1 */}
-          <div className="space-y-2">
-            <h4 className="text-sm font-bold text-slate-700">A. Rata-rata Panjang Kalimat</h4>
+          <div className="p-5 bg-slate-50 border border-slate-100 rounded-2xl space-y-2.5 hover:bg-white hover:shadow-md hover:shadow-slate-100 transition-all">
+            <div className="flex justify-between items-center">
+              <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">Struktural</span>
+              <span className="text-xs font-black text-slate-300">01</span>
+            </div>
+            <h4 className="text-sm font-extrabold text-slate-700">A. Rata-rata Panjang Kalimat</h4>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Dihitung dengan membagi total kata dengan jumlah kalimat. AI cenderung memproduksi kalimat yang sangat seragam (misal berkisar antara 14-16 kata secara konstan), sedangkan manusia menulis dengan dinamika yang acak (kalimat panjang diikuti kalimat pendek).
+              Rasio jumlah kata dibagi jumlah kalimat. AI cenderung memproduksi kalimat dengan panjang yang sangat seragam dan monoton (konstan di kisaran 12-16 kata), sedangkan manusia menulis dengan dinamika panjang kalimat yang bervariasi secara alami.
             </p>
           </div>
 
           {/* Metrik 2 */}
-          <div className="space-y-2">
-            <h4 className="text-sm font-bold text-slate-700">B. Keberagaman Kosakata (Lexical Diversity)</h4>
+          <div className="p-5 bg-slate-50 border border-slate-100 rounded-2xl space-y-2.5 hover:bg-white hover:shadow-md hover:shadow-slate-100 transition-all">
+            <div className="flex justify-between items-center">
+              <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">Struktural</span>
+              <span className="text-xs font-black text-slate-300">02</span>
+            </div>
+            <h4 className="text-sm font-extrabold text-slate-700">B. Keberagaman Kosakata (Lexical Diversity)</h4>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Rasio perbandingan kata unik terhadap jumlah total kata (Type-Token Ratio). Manusia cenderung memiliki kosa kata yang lebih kaya dan tidak terduga, sedangkan AI cenderung menggunakan kosa kata yang lebih terbatas dan berulang demi menjaga tata bahasa baku.
+              Menggunakan rumus Type-Token Ratio (TTR) untuk menghitung kosa kata unik dibanding total seluruh kata. Manusia menggunakan kosa kata yang lebih beraneka ragam dan tidak terduga, sedangkan AI cenderung menggunakan kata-kata &quot;aman&quot; yang berulang demi menjaga tata bahasa baku.
             </p>
           </div>
 
           {/* Metrik 3 */}
-          <div className="space-y-2">
-            <h4 className="text-sm font-bold text-slate-700">C. Kerapatan Tanda Baca</h4>
+          <div className="p-5 bg-slate-50 border border-slate-100 rounded-2xl space-y-2.5 hover:bg-white hover:shadow-md hover:shadow-slate-100 transition-all">
+            <div className="flex justify-between items-center">
+              <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">Struktural</span>
+              <span className="text-xs font-black text-slate-300">03</span>
+            </div>
+            <h4 className="text-sm font-extrabold text-slate-700">C. Kerapatan Tanda Baca</h4>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Rasio penggunaan karakter tanda baca utama terhadap total seluruh kata dalam teks. AI memiliki kepatuhan statistik yang kaku dalam menggunakan tanda baca (seperti koma dan titik) sesuai kaidah tata bahasa formal, yang menghasilkan kerapatan nilai statistik yang berbeda dengan manusia.
+              Rasio jumlah tanda baca utama terhadap total kata. AI memiliki kepatuhan statistik yang sangat kaku dan stabil dalam menempatkan tanda koma dan titik sesuai pedoman formal, menghasilkan tingkat kerapatan yang berbeda dengan tulisan manusia yang lebih fleksibel.
+            </p>
+          </div>
+
+          {/* Metrik 4 */}
+          <div className="p-5 bg-slate-50 border border-slate-100 rounded-2xl space-y-2.5 hover:bg-white hover:shadow-md hover:shadow-slate-100 transition-all">
+            <div className="flex justify-between items-center">
+              <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">Struktural</span>
+              <span className="text-xs font-black text-slate-300">04</span>
+            </div>
+            <h4 className="text-sm font-extrabold text-slate-700">D. Variabilitas Kalimat (Burstiness)</h4>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Standar deviasi dari panjang kalimat di seluruh dokumen. Tulisan manusia memiliki tingkat burstiness yang tinggi (kalimat sangat panjang yang dikombinasikan dengan kalimat pendek), sedangkan AI memiliki variabilitas rendah karena panjang kalimatnya sangat seragam.
+            </p>
+          </div>
+
+          {/* ========================== KELOMPOK 2: METRIK SINTAKSIS / POS ========================== */}
+
+          {/* Metrik 5 */}
+          <div className="p-5 bg-slate-50 border border-slate-100 rounded-2xl space-y-2.5 hover:bg-white hover:shadow-md hover:shadow-slate-100 transition-all">
+            <div className="flex justify-between items-center">
+              <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">Sintaksis (POS)</span>
+              <span className="text-xs font-black text-slate-300">05</span>
+            </div>
+            <h4 className="text-sm font-extrabold text-slate-700">E. Kerapatan Kata Benda (Nomina)</h4>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Rasio kata benda (`NOUN` & `PROPN`) terhadap total seluruh kata, diekstrak menggunakan POS Tagger nlp-id. Tulisan AI cenderung memiliki kepadatan nomina yang sangat tinggi karena fokus menyajikan informasi secara padat dan ringkas dalam satu kalimat.
+            </p>
+          </div>
+
+          {/* Metrik 6 */}
+          <div className="p-5 bg-slate-50 border border-slate-100 rounded-2xl space-y-2.5 hover:bg-white hover:shadow-md hover:shadow-slate-100 transition-all">
+            <div className="flex justify-between items-center">
+              <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">Sintaksis (POS)</span>
+              <span className="text-xs font-black text-slate-300">06</span>
+            </div>
+            <h4 className="text-sm font-extrabold text-slate-700">F. Kerapatan Kata Kerja (Verba)</h4>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Rasio kata kerja (`VERB`) terhadap total seluruh kata. Tulisan manusia secara alami memiliki kerapatan verba yang lebih tinggi karena manusia cenderung menceritakan proses tindakan (action-driven) dan hubungan aktif secara lebih dinamis dibanding mesin.
+            </p>
+          </div>
+
+          {/* Metrik 7 */}
+          <div className="p-5 bg-slate-50 border border-slate-100 rounded-2xl space-y-2.5 hover:bg-white hover:shadow-md hover:shadow-slate-100 transition-all">
+            <div className="flex justify-between items-center">
+              <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">Sintaksis (POS)</span>
+              <span className="text-xs font-black text-slate-300">07</span>
+            </div>
+            <h4 className="text-sm font-extrabold text-slate-700">G. Kerapatan Kata Sifat (Adjektiva)</h4>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Rasio kata sifat (`ADJ` / `JJ`) terhadap total kata. AI seringkali menggunakan kata sifat formal secara berlebihan (seperti kata komprehensif, signifikan, optimal) guna memberikan penekanan teks yang terdengar sangat profesional dan berwibawa secara akademis.
             </p>
           </div>
 
