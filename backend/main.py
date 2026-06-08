@@ -3,7 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 import os
 
 from app.ml_globals import load_models
-from app.routers import auth, predict, admin
+from app.routers import predict, admin
+from app import auth
 
 # ==============================================================================
 # INISIALISASI DIRECTORY & APP

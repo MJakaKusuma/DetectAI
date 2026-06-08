@@ -15,6 +15,7 @@ export interface AdminStats {
   total_feedback: number;
   distribution: Distribution;
   daily_activity: DailyActivity[];
+  server_metrics: ServerMetrics; 
 }
 
 export interface DatasetItem {
@@ -47,4 +48,10 @@ export interface UploadResponse {
   dataset_id: number;
   row_count: number;
   status: string;
+}
+
+interface ServerMetrics {
+  cpu_usage: number;
+  ram_usage: number;
+  latency: string;
 }

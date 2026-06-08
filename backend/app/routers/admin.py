@@ -4,10 +4,11 @@ import datetime
 import numpy as np
 import pandas as pd
 import joblib
+import time
 
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, text
 
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -21,6 +22,11 @@ from app.auth import check_admin_role
 from app.ml_logic import clean_text, extract_stylometry
 from app.ml_globals import ml_registry, update_global_ai_keywords, load_models
 
+try:
+    import psutil
+except ImportError:
+    psutil = None
+
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
 @router.get("/stats")
@@ -28,6 +34,11 @@ async def get_admin_stats(
     admin: User = Depends(check_admin_role), 
     db: Session = Depends(get_db)
 ):
+    start_time = time.time()
+    db.execute(text("SELECT 1"))
+    latency_ms = (time.time() - start_time) * 1000
+    latency_str = f"{latency_ms:.1f} ms"
+
     total_users = db.query(User).count()
     total_predictions = db.query(Prediction).count()
     
@@ -51,6 +62,11 @@ async def get_admin_stats(
             "day": day.strftime("%a"), 
             "count": count
         })
+    cpu_usage = 0.0
+    ram_usage = 0.0
+    if psutil:
+        cpu_usage = psutil.cpu_percent(interval=None)
+        ram_usage = psutil.virtual_memory().percent
     
     return {
         "total_users": total_users,
@@ -61,7 +77,12 @@ async def get_admin_stats(
             "ai_count": ai_count,
             "human_count": human_count
         },
-        "daily_activity": daily_activity
+        "daily_activity": daily_activity,
+        "server_metrics": {
+            "cpu_usage": cpu_usage,
+            "ram_usage": ram_usage,
+            "latency": latency_str
+        }
     }
 
 @router.get("/models")

@@ -1,7 +1,7 @@
 // Definisi tipe untuk Header agar tidak menggunakan 'any'
 type ApiHeaders = Record<string, string>;
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://192.168.5.213:8000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export const apiRequest = async <T>(
   endpoint: string, 

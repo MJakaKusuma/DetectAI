@@ -38,7 +38,7 @@ export default function DashboardTab({ stats }: DashboardTabProps) {
       </div>
 
       {/* PANEL GRAFIK INTEGRASI */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         
         {/* GRAFIK 1: Aktivitas Deteksi Harian */}
         <div className="lg:col-span-2 bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
@@ -110,7 +110,58 @@ export default function DashboardTab({ stats }: DashboardTabProps) {
             </div>
           </div>
         </div>
+            {/* GRAFIK 3: Server Health Monitor (Paling Kanan - Real-time dari psutil) */}
+            <div className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider mb-2">Server Health Monitor</h3>
+                <p className="text-[10px] text-slate-400 mb-6">Pemantauan spesifikasi beban fisik CPU, RAM, dan latensi kueri database secara real-time.</p>
+              </div>
 
+              <div className="space-y-4 text-xs">
+                {/* 1. CPU Usage */}
+                <div className="space-y-1">
+                  <div className="flex justify-between font-bold text-slate-600 text-[10px]">
+                    <span>CPU LOAD</span>
+                    <span>{(stats.server_metrics?.cpu_usage ?? 0).toFixed(1)}%</span>
+                  </div>
+                  <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full transition-all duration-500 ${
+                        (stats.server_metrics?.cpu_usage ?? 0) > 80 ? "bg-rose-500" : (stats.server_metrics?.cpu_usage ?? 0) > 50 ? "bg-amber-500" : "bg-indigo-600"
+                      }`}
+                      style={{ width:`${stats.server_metrics?.cpu_usage ?? 0}%`}}
+                    />
+                  </div>
+                </div>
+
+                {/* 2. RAM Usage */}
+                <div className="space-y-1">
+                  <div className="flex justify-between font-bold text-slate-600 text-[10px]">
+                    <span>RAM USAGE</span>
+                    <span>{(stats.server_metrics?.ram_usage ?? 0).toFixed(1)}%</span>
+                  </div>
+                  <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full transition-all duration-500 ${
+                        (stats.server_metrics?.ram_usage ?? 0) > 85 ? "bg-rose-500" : "bg-indigo-600"
+                      }`}
+                      style={{ width: `${stats.server_metrics?.ram_usage ?? 0}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* 3. Database Latency */}
+                <div className="pt-2 border-t border-slate-100 flex justify-between items-center text-[10px] font-bold text-slate-500">
+                  <span>DB QUERY LATENCY:</span>
+                  <span className="px-2 py-0.5 bg-emerald-50 border border-emerald-100 text-emerald-700 rounded-md">
+                    {stats.server_metrics?.latency ?? "0.0 ms"}
+                  </span>
+                </div>
+              </div>
+              <div className="text-[9px] text-slate-400 border-t border-slate-100 pt-3 mt-4">
+                * Parameter dimuat secara asinkron dari sistem operasi server lokal.
+              </div>
+            </div>
       </div>
 
       <AlertCallout title="Pemberitahuan Sistem" message="Sebagai Administrator, Anda berhak melatih ulang model menggunakan dataset baru. Pastikan dataset telah terstruktur rapi untuk menjaga stabilitas parameter statistik model." />
