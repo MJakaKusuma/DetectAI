@@ -31,10 +31,14 @@ def update_global_ai_keywords():
         ml_registry.ai_keywords = []
 
 def get_models():
+    
+    model_loading_error = None 
+
     try:
         ml_registry.model = joblib.load('models/logistic_model.pkl')
         ml_registry.tfidf = joblib.load('models/tfidf_vectorizer.pkl')
         print("Model loaded successfully!")
         update_global_ai_keywords()
     except Exception as e:
+        model_loading_error = str(e)
         print(f"Error loading model: {e}")

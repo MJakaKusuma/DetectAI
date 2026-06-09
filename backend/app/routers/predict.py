@@ -55,7 +55,7 @@ async def predict(
     db: Session = Depends(get_db)
 ):
     if ml_registry.model is None or ml_registry.tfidf is None:
-        raise HTTPException(status_code=503, detail="Model belum dimuat. Silakan periksa server.")
+        raise HTTPException(status_code=503, detail="Model belum dimuat. Silakan periksa server. Detail Error: {model_loading_error}")
 
     try:
         cleaned = clean_text(text_request.text)
