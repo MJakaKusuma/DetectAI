@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.env
+uploads/*
+models/*.pkl
+!models/logistic_model.pkl
+!models/tfidf_vectorizer.pkl
