@@ -24,7 +24,7 @@ app.add_middleware(
 
 models = None
 
-def get_models():
+def get_project_models():
     global models
     if models is None:
         models = get_models()
