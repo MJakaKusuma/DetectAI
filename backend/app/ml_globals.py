@@ -30,7 +30,7 @@ def update_global_ai_keywords():
         print(f"\n[XAI Warning] Gagal mengekstrak kata kunci: {e}. Menggunakan fallback.")
         ml_registry.ai_keywords = []
 
-def load_models():
+def get_models():
     try:
         ml_registry.model = joblib.load('models/logistic_model.pkl')
         ml_registry.tfidf = joblib.load('models/tfidf_vectorizer.pkl')

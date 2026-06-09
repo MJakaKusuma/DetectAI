@@ -20,7 +20,7 @@ from app.models import User, Prediction, ModelVersion, Feedback, Dataset
 from app.schemas import RenameDatasetRequest
 from app.auth import check_admin_role
 from app.ml_logic import clean_text, extract_stylometry
-from app.ml_globals import ml_registry, update_global_ai_keywords, load_models
+from app.ml_globals import get_models, ml_registry, update_global_ai_keywords, load_models
 
 try:
     import psutil
@@ -214,7 +214,7 @@ async def retrain_model(
         shutil.copy(model_path, 'models/logistic_model.pkl')
         shutil.copy(tfidf_path, 'models/tfidf_vectorizer.pkl')
         
-        load_models()
+        get_models()
         
         db.query(ModelVersion).update({ModelVersion.is_active: False})
         
@@ -295,7 +295,7 @@ async def activate_model_version(
         shutil.copy(model_path, 'models/logistic_model.pkl')
         shutil.copy(tfidf_path, 'models/tfidf_vectorizer.pkl')
         
-        load_models()
+        get_models()
         
         db.query(ModelVersion).update({ModelVersion.is_active: False})
         target_model.is_active = True

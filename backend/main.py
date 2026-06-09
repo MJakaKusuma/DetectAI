@@ -22,9 +22,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# LOAD MODEL UTAMA (Saat Booting Server)
-load_models()
+models = None
 
+def get_models():
+    global models
+    if models is None:
+        models = get_models()
+    return models
+    ...
 @app.get("/")
 def root():
     return {"status": "Online", "message": "AI Detection API with DB is ready"}
