@@ -13,13 +13,20 @@ load_dotenv()
 # Format: mysql+pymysql://user:password@host/db_name
 # GANTI 'root' dan 'password_anda' sesuai dengan settingan MySQL Anda
 DATABASE_URL = os.getenv("DATABASE_URL")
-engine = create_engine(DATABASE_URL, pool_recycle=3600, pool_pre_ping=True)
+SSL_CA_PATH = os.getenv("SSL_CA_PATH")
+
+connect_args = {
+    "ssl": {
+        "ca": SSL_CA_PATH
+    }
+}
 
 # Create Engine: Mesin utama yang menghubungkan Python ke MySQL
 engine = create_engine(
     DATABASE_URL, 
-    pool_recycle=3600, # Refresh koneksi setiap 1 jam agar tidak kena 'MySQL server has gone away'
-    pool_pre_ping=True # Cek koneksi sebelum digunakan
+    pool_recycle=3600, 
+    pool_pre_ping=True,
+    connect_args=connect_args 
 )
 
 # SessionLocal: Pabrik untuk membuat session (transaksi) database

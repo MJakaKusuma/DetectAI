@@ -1,28 +1,20 @@
-# ------------------------------------------------------------------------------
-# Next.js (Frontend)
-# ------------------------------------------------------------------------------
 frontend/node_modules/
 frontend/.next/
 frontend/out/
 frontend/.env*.local
 
-# ------------------------------------------------------------------------------
-# FastAPI (Backend)
-# ------------------------------------------------------------------------------
 backend/__pycache__/
 backend/*.pyc
 backend/.env
 backend/uploads/*
 backend/models/*.pkl
 
-# Perkecualian: Jangan blokir model bawaan agar draf di laptop dosen bisa berjalan
+
 !backend/models/logistic_model.pkl
 !backend/models/tfidf_vectorizer.pkl
 
-# ------------------------------------------------------------------------------
-# Sistem Operasi & Konfigurasi IDE lokal
-# ------------------------------------------------------------------------------
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
+ca.pem
