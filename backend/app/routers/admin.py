@@ -20,7 +20,7 @@ from app.models import User, Prediction, ModelVersion, Feedback, Dataset
 from app.schemas import RenameDatasetRequest
 from app.auth import check_admin_role
 from app.ml_logic import clean_text, extract_stylometry
-from app.ml_globals import get_models, ml_registry, update_global_ai_keywords, load_models
+from app.ml_globals import get_models, ml_registry, update_global_ai_keywords
 
 try:
     import psutil
