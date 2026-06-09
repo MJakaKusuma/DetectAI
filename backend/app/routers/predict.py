@@ -59,15 +59,25 @@ async def predict(
 
     try:
         cleaned = clean_text(text_request.text)
-        style_feat = extract_stylometry(cleaned).values.reshape(1, -1)
+
         tfidf_feat = ml_registry.tfidf.transform([cleaned]).toarray()
+        style_feat = np.array(extract_stylometry(cleaned)).reshape(1, -1)
+
         combined = np.hstack((tfidf_feat, style_feat))
-        
+
         prediction = ml_registry.model.predict(combined)[0]
+        if combined.shape[1] != 1007:
+            raise HTTPException(status_code=500, detail="Feature mismatch")
         probability = ml_registry.model.predict_proba(combined)[0]
+
+    except Exception as e:
+        print("ERROR PREDICT:", str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+    
+    try:
         
         res_label = "AI" if prediction == 1 else "Human"
-        conf_value = float(probability[prediction])
+        conf_value = float(np.max(probability))
         
         # Ekstrak nilai stilometri mentah
         raw_avg_sent = float(style_feat[0][0])
@@ -129,3 +139,7 @@ async def predict(
     except Exception as e:
         print(f"Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+    finally:
+        print("TFIDF shape:", tfidf_feat.shape)
+        print("STYLO shape:", style_feat.shape)

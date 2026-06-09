@@ -40,15 +40,9 @@ export default function TrainingTab({ datasets, fetchAdminData, setDatasets, han
     formData.append("file", file);
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/admin/upload", {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${token}` },
-        body: formData
-      });
+      // PERBAIKAN: Mengganti fetch hardcode dengan utilitas apiRequest
+      const data = await apiRequest<UploadResponse>("/admin/upload", "POST", formData, token);
 
-      if (!response.ok) throw new Error("Gagal mengunggah file.");
-
-      const data: UploadResponse = await response.json();
       setSelectedDatasetId(data.dataset_id.toString());
       showToast(`Dataset master berhasil diunggah! Terbaca ${data.row_count} data.`, "success");
       setFile(null);
@@ -196,7 +190,7 @@ export default function TrainingTab({ datasets, fetchAdminData, setDatasets, han
             <div className="text-center py-12 text-slate-400 text-xs">Belum ada berkas dataset yang diunggah.</div>
           ) : (
             <div className="overflow-x-auto -mx-6 px-6">
-              <table className="w-full text-left text-sm text-slate-600 min-w-[700px]">
+              <table className="w-full text-left text-sm text-slate-600 min-w-175">
                 <thead>
                   <tr className="border-b border-slate-100 text-slate-400 text-xs font-bold uppercase tracking-wider pb-2">
                     <th className="pb-3">Tanggal Unggah</th>

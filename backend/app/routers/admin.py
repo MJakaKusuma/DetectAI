@@ -173,17 +173,18 @@ async def retrain_model(
 
         style_features_list = []
         for t in df_combined['clean_text']:
-            style_features_list.append(extract_stylometry(t).flatten())
-        X_stilo_only = np.array(style_features_list)
+            style_features_list.append(list(extract_stylometry(t)))
+        if extract_stylometry.shape[1] != 7:
+            raise ValueError(f"Stylometry rusak: {extract_stylometry.shape}")
 
-        new_tfidf = TfidfVectorizer(max_features=1000)
+        new_tfidf = joblib.load("models/tfidf_vectorizer.pkl")
         X_tfidf_only = new_tfidf.fit_transform(df_combined['clean_text']).toarray()
 
-        X_hybrid = np.hstack((X_tfidf_only, X_stilo_only))
+        X_hybrid = np.hstack((X_tfidf_only, extract_stylometry))
         y_new = df_combined['label']
 
         X_train_t, X_test_t, y_train, y_test = train_test_split(X_tfidf_only, y_new, test_size=0.2, random_state=42)
-        X_train_s, X_test_s, _, _ = train_test_split(X_stilo_only, y_new, test_size=0.2, random_state=42)
+        X_train_s, X_test_s, _, _ = train_test_split(extract_stylometry, y_new, test_size=0.2, random_state=42)
         X_train_h, X_test_h, _, _ = train_test_split(X_hybrid, y_new, test_size=0.2, random_state=42)
 
         model_tfidf = LogisticRegression(max_iter=1000)
@@ -208,8 +209,8 @@ async def retrain_model(
         model_path = f"models/logistic_model_{version_code}.pkl"
         tfidf_path = f"models/tfidf_vectorizer_{version_code}.pkl"
         
-        joblib.dump(model_hybrid, model_path)
-        joblib.dump(new_tfidf, tfidf_path)
+        joblib.dump(model_hybrid, 'models/logistic_model.pkl')
+        joblib.dump(new_tfidf, 'models/tfidf_vectorizer.pkl')
 
         shutil.copy(model_path, 'models/logistic_model.pkl')
         shutil.copy(tfidf_path, 'models/tfidf_vectorizer.pkl')
