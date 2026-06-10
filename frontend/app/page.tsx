@@ -31,7 +31,7 @@ export default function LandingPage() {
             {/* Statistik Ringkas di Hero untuk Meramaikan */}
             <div className="grid grid-cols-3 gap-4 border-y border-slate-100 py-4 max-w-md text-center sm:text-left">
               <div>
-                <h4 className="text-lg font-black text-indigo-600">97.66%</h4>
+                <h4 className="text-lg font-black text-indigo-600">99.53%</h4>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Akurasi Model</p>
               </div>
               <div>
