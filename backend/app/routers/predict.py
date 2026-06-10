@@ -48,6 +48,7 @@ async def get_user_history(
         for p in predictions
     ]
 
+
 @router.post("/predict")
 async def predict(
     text_request: TextRequest, 
@@ -55,7 +56,7 @@ async def predict(
     db: Session = Depends(get_db)
 ):
     if ml_registry.model is None or ml_registry.tfidf is None:
-        raise HTTPException(status_code=503, detail="Model belum dimuat. Silakan periksa server. Detail Error: {model_loading_error}")
+        raise HTTPException(status_code=503, detail=f"Model belum dimuat. Silakan periksa server. Detail Error: {ml_registry.model_loading_error}")
 
     try:
         cleaned = clean_text(text_request.text)
