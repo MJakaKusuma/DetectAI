@@ -20,10 +20,10 @@ os.makedirs("models", exist_ok=True)
 # 1. MEMUAT DATASET UTAMA (CORPUS DATA)
 # ==============================================================================
 try:
-    df = pd.read_csv("uploads/final_detection_dataset_app_20260609125603.csv")
+    df = pd.read_csv("uploads/dataset_downsampled_balanced.csv")
     print(f"Dataset loaded successfully: {len(df)} rows")
 except Exception as e:
-    print(f"Error loading dataset: {e}. Pastikan berkas 'final_detection_dataset_app_20260609125603.csv' berada di direktori yang sama.")
+    print(f"Error loading dataset: {e}. Pastikan berkas 'dataset_downsampled_balanced.csv' berada di direktori yang sama.")
     exit()
 
 # ==============================================================================
@@ -126,8 +126,8 @@ print("="*40 + "\n")
 print("Classification Report (Model Hibrida Utama):\n", report)
 
 # Simpan Model Hibrida Fisik langsung ke folder models/
-joblib.dump(model_hybrid, 'models/logistic_model_testing.pkl')
-joblib.dump(tfidf, 'models/tfidf_vectorizer_testing.pkl')
+joblib.dump(model_hybrid, 'models/logistic_model_testing_test.pkl')
+joblib.dump(tfidf, 'models/tfidf_vectorizer_testing_test.pkl')
 
 print("Model Hibrida Utama (1.007 Fitur) dan Vectorizer berhasil disimpan ke folder 'models/'!")
 
@@ -178,10 +178,9 @@ word_counts = X_test_raw_reset.apply(lambda x: len(str(x).split()))
 
 # Mendefinisikan kategori rentang panjang kata
 bins = [
-    ("1. Sangat Pendek (1 s.d 50 kata)", 1, 50),
-    ("2. Pendek (51 s.d 100 kata)", 51, 100),
-    ("3. Sedang (101 s.d 200 kata)", 101, 200),
-    ("4. Standar (201 s.d 300 kata)", 201, 300)
+    ("1. Pendek (25 s.d 75 kata)", 25, 75),
+    ("3. Sedang (76 s.d 150 kata)", 76, 150),
+    ("4. Standar (151 s.d 225 kata)", 151, 225)
 ]
 
 # Siapkan list untuk menyimpan hasil perhitungan metrik
