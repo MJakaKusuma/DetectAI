@@ -46,33 +46,26 @@ X_train_t, X_test_t, y_train, y_test = train_test_split(X_tfidf_only, y, test_si
 X_train_s, X_test_s, _, _ = train_test_split(X_stilo_only, y, test_size=0.2, random_state=42)
 X_train_h, X_test_h, _, _ = train_test_split(X_hybrid, y, test_size=0.2, random_state=42)
 
-# ==============================================================================
-# 6. PENILAIAN KOMPARATIF METODOLOGIS (ABLATION STUDY 1.007 DIMENSI)
-# ==============================================================================
 print("\nMengevaluasi skenario komparatif fitur...")
 
-# Skenario 1: TF-IDF Saja (Leksikal)
 model_tfidf = LogisticRegression(max_iter=1000)
 model_tfidf.fit(X_train_t, y_train)
 pred_tfidf = model_tfidf.predict(X_test_t)
 acc_tfidf = accuracy_score(y_test, pred_tfidf)
 f1_tfidf = f1_score(y_test, pred_tfidf)
 
-# Skenario 2: Stilometri Saja (Kini menggunakan 7 Fitur hasil POS Tagging & Burstiness!)
 model_stilo = LogisticRegression(max_iter=1000)
 model_stilo.fit(X_train_s, y_train)
 pred_stilo = model_stilo.predict(X_test_s)
 acc_stilo = accuracy_score(y_test, pred_stilo)
 f1_stilo = f1_score(y_test, pred_stilo)
 
-# Skenario 3: Hibrida Terpadu (1.007 Fitur)
 model_hybrid = LogisticRegression(max_iter=1000)
 model_hybrid.fit(X_train_h, y_train)
 pred_hybrid = model_hybrid.predict(X_test_h)
 acc_hybrid = accuracy_score(y_test, pred_hybrid)
 f1_hybrid = f1_score(y_test, pred_hybrid)
 
-# Cetak Tabel Hasil Eksperimen Komparatif untuk Laporan Bab IV
 print("\n" + "="*60)
 print("     PERBANDINGAN AKURASI FITUR (ABLATION STUDY 1.007 DIMENSI)")
 print("="*60)
@@ -83,15 +76,10 @@ print(f"{'2. Stilometri Saja (7 Fitur)':<30} | {acc_stilo:<10.4f} | {f1_stilo:<1
 print(f"{'3. Hibrida (TF-IDF + Stilo)':<30} | {acc_hybrid:<10.4f} | {f1_hybrid:<10.4f}")
 print("="*60 + "\n")
 
-# ==============================================================================
-# 7. EVALUASI DETAIL MODEL HIBRIDA UTAMA (PRODUKSI) & PENYIMPANAN
-# ==============================================================================
 report = classification_report(y_test, pred_hybrid)
 conf_matrix = confusion_matrix(y_test, pred_hybrid)
-# Ekstrak nilai biner dari matriks 2x2 secara urut menggunakan fungsi ravel
 tn, fp, fn, tp = conf_matrix.ravel()
 
-# Cetak hasil ekstraksi ke terminal dengan keterangan fungsional yang jelas
 print("\n" + "="*40)
 print("     RINCIAN METRIK CONFUSION MATRIX")
 print("="*40)
@@ -103,22 +91,17 @@ print("="*40 + "\n")
 
 print("Classification Report (Model Hibrida Utama):\n", report)
 
-# Simpan Model Hibrida Fisik langsung ke folder models/
 joblib.dump(model_hybrid, 'models/logistic_model_testing_test.pkl')
 joblib.dump(tfidf, 'models/tfidf_vectorizer_testing_test.pkl')
 
 print("Model Hibrida Utama (1.007 Fitur) dan Vectorizer berhasil disimpan ke folder 'models/'!")
 
-# Visualisasi Confusion Matrix Model Hibrida Utama
 group_names = ['TN', 'FP', 'FN', 'TP']
 
-# Ambil nilai confusion matrix
 group_counts = [f'{value}' for value in conf_matrix.flatten()]
 
-# Gabungkan label + nilai
 labels = [f'{name}\n{count}' for name, count in zip(group_names, group_counts)]
 
-# Ubah ke bentuk 2x2
 labels = np.asarray(labels).reshape(2, 2)
 
 plt.figure(figsize=(7,5))
@@ -144,40 +127,27 @@ print("\n" + "="*60)
 print("     MENGEKSEKUSI UJI KETAHANAN PANJANG DOKUMEN")
 print("="*60)
 
-# Memisahkan raw text menggunakan parameter split yang sama agar indeks sinkron 100%
 _, X_test_raw = train_test_split(df['clean_text'], test_size=0.2, random_state=42)
 
-# Menyetel ulang indeks ke 0 s.d 1073 agar sinkron dengan matriks numpy X_test_h
 X_test_raw_reset = X_test_raw.reset_index(drop=True)
 y_test_reset = y_test.reset_index(drop=True)
 
-# Menghitung jumlah kata pada setiap dokumen di data uji
 word_counts = X_test_raw_reset.apply(lambda x: len(str(x).split()))
 
-# Mendefinisikan kategori rentang panjang kata
 bins = [
     ("1. Pendek (25 s.d 75 kata)", 25, 75),
     ("3. Sedang (76 s.d 150 kata)", 76, 150),
     ("4. Standar (151 s.d 225 kata)", 151, 225)
 ]
 
-# Siapkan list untuk menyimpan hasil perhitungan metrik
 stress_test_results = []
 
-# Iterasi untuk menguji model pada setiap rentang panjang kata
 for label_kategori, min_words, max_words in bins:
-    # Mencari indeks baris data yang masuk dalam rentang kata saat ini
     bin_indices = np.where((word_counts >= min_words) & (word_counts <= max_words))[0]
-    
-    # Jika terdapat sampel data pada rentang tersebut, lakukan pengujian
     if len(bin_indices) > 0:
         X_test_bin = X_test_h[bin_indices]
         y_test_bin = y_test_reset.iloc[bin_indices]
-        
-        # Prediksi menggunakan model hibrida utama
         pred_bin = model_hybrid.predict(X_test_bin)
-        
-        # Hitung metrik evaluasi
         acc_bin = accuracy_score(y_test_bin, pred_bin)
         f1_bin = f1_score(y_test_bin, pred_bin, average='weighted')
         
@@ -185,7 +155,6 @@ for label_kategori, min_words, max_words in bins:
     else:
         stress_test_results.append((label_kategori, 0, 0.0, 0.0))
 
-# Cetak Tabel Ringkasan Hasil Uji Ketahanan untuk Laporan Bab IV
 print("\n" + "="*80)
 print("     DISTRIBUSI PERFORMA MODEL HIBRIDA BERDASARKAN PANJANG KATA")
 print("="*80)
@@ -195,7 +164,6 @@ print("-"*80)
 for kategori, sampel_n, acc, f1 in stress_test_results:
     print(f"{kategori:<35} | {sampel_n:<10} | {acc:<10.4f} | {f1:<10.4f}")
 
-# Tampilkan juga baris performa universal sebagai pembanding
 print("-"*80)
 print(f"{'5. Universal (Semua Ukuran)':<35} | {len(y_test):<10} | {acc_hybrid:<10.4f} | {f1_hybrid:<10.4f}")
 print("="*80 + "\n")
