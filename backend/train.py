@@ -9,16 +9,10 @@ from sklearn.metrics import accuracy_score, f1_score, classification_report, con
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-# KUNCI INTEGRASI: Impor logika ekstraktor terpusat dari app/ml_logic.py
-# Ini memastikan logika training offline dan prediksi online selalu sinkron 100%
 from app.ml_logic import clean_text, extract_stylometry
 
-# Pastikan direktori penyimpanan models ada di server
 os.makedirs("models", exist_ok=True)
 
-# ==============================================================================
-# 1. MEMUAT DATASET UTAMA (CORPUS DATA)
-# ==============================================================================
 try:
     df = pd.read_csv("uploads/dataset_downsampled_balanced.csv")
     print(f"Dataset loaded successfully: {len(df)} rows")
@@ -26,44 +20,28 @@ except Exception as e:
     print(f"Error loading dataset: {e}. Pastikan berkas 'dataset_downsampled_balanced.csv' berada di direktori yang sama.")
     exit()
 
-# ==============================================================================
-# 2. PROSES PRA-PEMROSESAN DATA (PREPROCESSING)
-# ==============================================================================
 print("Pembersihan naskah teks (Preprocessing)...")
 df['clean_text'] = df['text'].apply(clean_text)
 
-# ==============================================================================
-# 3. EKSTRAKSI FITUR STILOMETRI (7 DIMENSI BARU DENGAN NLP-ID & NUMPY)
-# ==============================================================================
-# SESUDAH (Mengaktifkan Progress Bar untuk Pandas)
+
 print("Ekstraksi 7 fitur stilometrik dokumen menggunakan nlp-id & numpy...")
 from tqdm import tqdm
-tqdm.pandas() # Mengaktifkan integrasi progress bar ke Pandas
+tqdm.pandas()
 
-# Ganti '.apply' menjadi '.progress_apply'
 df[['avg_sent_len', 'lex_div', 'punct_dens', 'sent_len_var', 'noun_dens', 'verb_dens', 'adj_dens']] = df['clean_text'].progress_apply(extract_stylometry)
 
-# ==============================================================================
-# 4. EKSTRAKSI FITUR TF-IDF & MATRIKS MATEMATIKA
-# ==============================================================================
 print("Ekstraksi pembobotan kata TF-IDF (1.000 fitur teratas)...")
 tfidf = TfidfVectorizer(max_features=1000)
 tfidf_matrix = tfidf.fit_transform(df['clean_text']).toarray()
 
-# Memisahkan Matriks Fitur Masing-Masing Skenario
 X_tfidf_only = tfidf_matrix
 
-# Skenario 2: Hanya Stilometri (Kini menggunakan 7 kolom baru!)
 X_stilo_only = df[['avg_sent_len', 'lex_div', 'punct_dens', 'sent_len_var', 'noun_dens', 'verb_dens', 'adj_dens']].values
 
-# Skenario 3 Hibrida: Menggabungkan TF-IDF dan Stilometri (1.007 Dimensi)
 X_hybrid = np.hstack((tfidf_matrix, X_stilo_only))
 
 y = df['label']
 
-# ==============================================================================
-# 5. PEMBAGIAN DATA LATIH & DATA UJI (80% Train, 20% Test)
-# ==============================================================================
 X_train_t, X_test_t, y_train, y_test = train_test_split(X_tfidf_only, y, test_size=0.2, random_state=42)
 X_train_s, X_test_s, _, _ = train_test_split(X_stilo_only, y, test_size=0.2, random_state=42)
 X_train_h, X_test_h, _, _ = train_test_split(X_hybrid, y, test_size=0.2, random_state=42)
