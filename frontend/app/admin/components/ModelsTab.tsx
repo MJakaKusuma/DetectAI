@@ -67,7 +67,6 @@ export default function ModelsTab({ models, fetchAdminData }: ModelsTabProps) {
         </div>
       </div>
 
-      {/* Paginasi Model */}
       {models.length > ROWS_PER_PAGE && (
         <div className="flex items-center justify-between border-t border-slate-100 pt-4 mt-6 text-xs">
           <span className="text-slate-400">

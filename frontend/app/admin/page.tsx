@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { apiRequest } from "../lib/api";
 import { useToast } from "../components/toast";
 import { useRouter } from "next/navigation";
+import { Tool, BarChart2, AlertTriangle, Folder, Target } from "react-feather";
 
 // Imports
 import { AdminStats, DatasetItem, ModelVersionItem, FeedbackItem } from "./types";
@@ -74,7 +75,7 @@ export default function AdminPage() {
       {/* Header */}
      <div className="mb-8 animate-fade-in">
       <div className="flex items-center gap-2.5">
-        <span className="text-2xl">🛠️</span>
+        <span className="text-2xl"><Tool /></span>
         <h1 className="text-3xl font-black text-slate-800 tracking-tight">Administrator Panel</h1>
       </div>
       <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
@@ -84,10 +85,10 @@ export default function AdminPage() {
 
       {/* Tab Navigation */}
       <div className="flex border-b border-slate-200 gap-6 overflow-x-auto whitespace-nowrap pb-1">
-        <button onClick={() => handleTabChange("dashboard")} className={`pb-3 text-sm font-bold border-b-2 transition-all ${activeTab === "dashboard" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-400"}`}>📊 Ringkasan Dashboard</button>
-        <button onClick={() => handleTabChange("training")} className={`pb-3 text-sm font-bold border-b-2 transition-all ${activeTab === "training" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-400"}`}>📁 Dataset & Training</button>
-        <button onClick={() => handleTabChange("models")} className={`pb-3 text-sm font-bold border-b-2 transition-all ${activeTab === "models" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-400"}`}>🎯 Model Registry</button>
-        <button onClick={() => handleTabChange("feedback")} className={`pb-3 text-sm font-bold border-b-2 transition-all ${activeTab === "feedback" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-400"}`}>⚠️ Audit Umpan Balik</button>
+        <button onClick={() => handleTabChange("dashboard")} className={`pb-3 text-sm font-bold border-b-2 transition-all ${activeTab === "dashboard" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-400"}`}><BarChart2 className="inline-block w-4 h-4 mr-2" /> Ringkasan Dashboard</button>
+        <button onClick={() => handleTabChange("training")} className={`pb-3 text-sm font-bold border-b-2 transition-all ${activeTab === "training" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-400"}`}><Folder className="inline-block w-4 h-4 mr-2" /> Dataset & Training</button>
+        <button onClick={() => handleTabChange("models")} className={`pb-3 text-sm font-bold border-b-2 transition-all ${activeTab === "models" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-400"}`}><Target className="inline-block w-4 h-4 mr-2" /> Model Registry</button>
+        <button onClick={() => handleTabChange("feedback")} className={`pb-3 text-sm font-bold border-b-2 transition-all ${activeTab === "feedback" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-400"}`}><AlertTriangle className="inline-block w-4 h-4 mr-2" /> Audit Umpan Balik</button>
       </div>
 
       {activeTab === "dashboard" && <DashboardTab stats={stats} />}

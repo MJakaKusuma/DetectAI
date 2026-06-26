@@ -2,11 +2,7 @@ import pandas as pd
 import numpy as np
 from sklearn.metrics import confusion_matrix
 
-# ==============================================================================
-# 1. PREPARE COMPARATIVE REAL DATASET (21 BALANCED DOCUMENTS)
-# ==============================================================================
 raw_data = [
-    # --- CLASS 0: HUMAN (JOURNAL EXPERT SI UBL) ---
     {
         "label": 0, "model": "journal expert si ubl", 
         "detect_ai_raw": "96.84%", "gpt_zero_raw": "100%", "zerogpt_raw": "0%"
@@ -47,7 +43,6 @@ raw_data = [
         "label": 0, "model": "journal expert si ubl", 
         "detect_ai_raw": "93.06%", "gpt_zero_raw": "100%%", "zerogpt_raw": "0%"
     },
-    # --- CLASS 1: AI (GEMINI 3.5 FLASH) ---
     {
         "label": 1, "model": "gemini 3.5 flash", 
         "detect_ai_raw": "85.60%", "gpt_zero_raw": "100%", "zerogpt_raw": "89.1%"
@@ -92,9 +87,6 @@ raw_data = [
 
 df = pd.DataFrame(raw_data)
 
-# ==============================================================================
-# 2. STRING DATA CLEANING TO FLOAT VALUES
-# ==============================================================================
 def clean_pct(val):
     if pd.isna(val):
         return 0.0
@@ -105,16 +97,10 @@ df['detect_ai_val'] = df['detect_ai_raw'].apply(clean_pct)
 df['gpt_zero_val'] = df['gpt_zero_raw'].apply(clean_pct)
 df['zerogpt_val'] = df['zerogpt_raw'].apply(clean_pct)
 
-# ==============================================================================
-# 3. PREDICTIONS & CONFIDENCE CALCULATION ENGINE
-# ==============================================================================
-
-# --- System 1: DETECTAI (Our Proposed System) ---
 df['pred_detect_ai'] = df['label']
 df['correct_detect_ai'] = True
 df['conf_detect_ai'] = df['detect_ai_val']
 
-# --- System 2: GPTZero (Commercial) ---
 df['pred_gpt_zero'] = df['gpt_zero_val'].apply(lambda x: 1 if x >= 50.0 else 0)
 df['correct_gpt_zero'] = df['pred_gpt_zero'] == df['label']
 df['conf_gpt_zero'] = df.apply(
@@ -122,7 +108,6 @@ df['conf_gpt_zero'] = df.apply(
     axis=1
 )
 
-# --- System 3: ZeroGPT (Commercial) ---
 df['pred_zerogpt'] = df['zerogpt_val'].apply(lambda x: 1 if x >= 50.0 else 0)
 df['correct_zerogpt'] = df['pred_zerogpt'] == df['label']
 df['conf_zerogpt'] = df.apply(
@@ -130,9 +115,6 @@ df['conf_zerogpt'] = df.apply(
     axis=1
 )
 
-# ==============================================================================
-# 4. COMPUTE METRICS FUNCTION FOR MASTER COMPARISON TABLE
-# ==============================================================================
 def get_system_stats(y_true, y_pred, confidences, correctness):
     cm = confusion_matrix(y_true, y_pred)
     if cm.shape == (2, 2):
@@ -149,7 +131,6 @@ def get_system_stats(y_true, y_pred, confidences, correctness):
     recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
     f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0.0
 
-    # Confidence statistics
     mean_conf_all = np.mean(confidences)
     max_conf_all = np.max(confidences)
     min_conf_all = np.min(confidences)
@@ -181,14 +162,10 @@ def get_system_stats(y_true, y_pred, confidences, correctness):
         "Max Confidence (Incorrect)": f"{max_conf_incorrect:.2f}%" if sum(incorrect_idx) > 0 else "0.00% (N/A)"
     }
 
-# Retrieve stats for each system
 detect_ai_stats = get_system_stats(df['label'].values, df['pred_detect_ai'].values, df['conf_detect_ai'].values, df['correct_detect_ai'].values)
 gpt_zero_stats = get_system_stats(df['label'].values, df['pred_gpt_zero'].values, df['conf_gpt_zero'].values, df['correct_gpt_zero'].values)
 zerogpt_stats = get_system_stats(df['label'].values, df['pred_zerogpt'].values, df['conf_zerogpt'].values, df['correct_zerogpt'].values)
 
-# ==============================================================================
-# 5. RENDER BEAUTIFUL MASTER BENCHMARK TABLE
-# ==============================================================================
 metrics_list = [
     "TN", "FP", "FN", "TP", 
     "Accuracy", "Precision", "Recall (Sensitivity)", "F1-Score",
@@ -203,7 +180,6 @@ print("="*86)
 print(f"{'Metric / Statistic':<35} | {'DETECTAI (Ours)':<15} | {'ZeroGPT':<13} | {'GPTZero':<12}")
 print("-"*86)
 
-# Print Classification Metrics Section
 for metric in metrics_list[:4]:
     print(f"{metric:<35} | {detect_ai_stats[metric]:^15} | {zerogpt_stats[metric]:^13} | {gpt_zero_stats[metric]:^12}")
 print("-"*86)
@@ -211,7 +187,6 @@ for metric in metrics_list[4:8]:
     print(f"{metric:<35} | {detect_ai_stats[metric]:^15} | {zerogpt_stats[metric]:^13} | {gpt_zero_stats[metric]:^12}")
 print("-"*86)
 
-# Print Confidence Statistics Section
 for metric in metrics_list[8:]:
     print(f"{metric:<35} | {detect_ai_stats[metric]:^15} | {zerogpt_stats[metric]:^13} | {gpt_zero_stats[metric]:^12}")
 print("="*86 + "\n")

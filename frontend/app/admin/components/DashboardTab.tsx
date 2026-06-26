@@ -2,6 +2,7 @@
 
 import { StatCard, AlertCallout } from "../../components/dashboardwidgets";
 import { AdminStats } from "../types";
+import { User, Clock, Target, AlertTriangle } from "react-feather";
 
 interface DashboardTabProps {
   stats: AdminStats | null;
@@ -31,10 +32,10 @@ export default function DashboardTab({ stats }: DashboardTabProps) {
     <div className="space-y-8 animate-fade-in">
       {/* Grid Statistik Dasar */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard title="Total Pengguna" value={`${stats.total_users} Akun`} icon="👤" />
-        <StatCard title="Total Prediksi" value={`${stats.total_predictions} Kali`} icon="⏳" />
-        <StatCard title="Akurasi Model Aktif" value={stats.active_accuracy} icon="🎯" />
-        <StatCard title="Umpan Balik User" value={`${stats.total_feedback} Koreksi`} icon="⚠️" />
+        <StatCard title="Total Pengguna" value={`${stats.total_users} Akun`} icon={<User />} />
+        <StatCard title="Total Prediksi" value={`${stats.total_predictions} Kali`} icon={<Clock />} />
+        <StatCard title="Akurasi Model Aktif" value={stats.active_accuracy} icon={<Target />} />
+        <StatCard title="Umpan Balik User" value={`${stats.total_feedback} Koreksi`} icon={<AlertTriangle />} />
       </div>
 
       {/* PANEL GRAFIK INTEGRASI */}

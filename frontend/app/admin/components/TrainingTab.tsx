@@ -5,6 +5,7 @@ import { DatasetItem, UploadResponse } from "../types";
 import DatasetMerger from "../../components/datasetmerger";
 import { useToast } from "../../components/toast";
 import { apiRequest } from "../../lib/api";
+import { FileText, Shuffle, Edit3, Trash2 } from "react-feather";
 
 interface TrainingTabProps {
   datasets: DatasetItem[];
@@ -40,13 +41,12 @@ export default function TrainingTab({ datasets, fetchAdminData, setDatasets, han
     formData.append("file", file);
 
     try {
-      // PERBAIKAN: Mengganti fetch hardcode dengan utilitas apiRequest
       const data = await apiRequest<UploadResponse>("/admin/upload", "POST", formData, token);
 
       setSelectedDatasetId(data.dataset_id.toString());
       showToast(`Dataset master berhasil diunggah! Terbaca ${data.row_count} data.`, "success");
       setFile(null);
-      
+
       const datasetsData = await apiRequest<DatasetItem[]>("/admin/datasets", "GET", null, token);
       setDatasets(datasetsData);
     } catch (err: unknown) {
@@ -113,8 +113,6 @@ export default function TrainingTab({ datasets, fetchAdminData, setDatasets, han
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fade-in">
       <div className="lg:col-span-1 space-y-6">
-        
-        {/* PANEL PEMILIHAN METODE UNGGAH */}
         <div className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm space-y-4">
           <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Metode Unggah</h3>
           <div className="flex gap-2 text-xs font-bold">
@@ -127,7 +125,7 @@ export default function TrainingTab({ datasets, fetchAdminData, setDatasets, han
                   : "bg-white border-slate-200 text-slate-400"
               }`}
             >
-              📄 Single CSV
+              <FileText className="inline-block w-4 h-4 mr-2" /> Single CSV
             </button>
             <button 
               type="button"
@@ -138,12 +136,11 @@ export default function TrainingTab({ datasets, fetchAdminData, setDatasets, han
                   : "bg-white border-slate-200 text-slate-400"
               }`}
             >
-              🔀 Merge Tool
+              <Shuffle className="inline-block w-4 h-4 mr-2" /> Merge Tool
             </button>
           </div>
         </div>
 
-        {/* AREA DUMP UNGGAH */}
         {uploadMethod === "single" ? (
           <div className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm space-y-4 animate-fade-in">
             <h3 className="text-base font-bold text-slate-800">Unggah Single CSV</h3>
@@ -167,7 +164,6 @@ export default function TrainingTab({ datasets, fetchAdminData, setDatasets, han
           />
         )}
 
-        {/* PANEL RETRAINING */}
         <div className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm space-y-4">
           <h3 className="text-base font-bold text-slate-800">Latih Model</h3>
           <select value={selectedDatasetId} onChange={(e) => setSelectedDatasetId(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm text-slate-700 bg-white outline-none">
@@ -182,7 +178,6 @@ export default function TrainingTab({ datasets, fetchAdminData, setDatasets, han
         </div>
       </div>
 
-      {/* Sisi Kanan: Daftar Dataset */}
       <div className="lg:col-span-2 bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm flex flex-col justify-between min-h-112.5">
         <div>
           <h3 className="text-base font-bold text-slate-800 mb-6">Berkas Dataset di Server</h3>
@@ -212,13 +207,13 @@ export default function TrainingTab({ datasets, fetchAdminData, setDatasets, han
                           onClick={() => handleRenameDataset(d.id, d.filename)}
                           className="px-2.5 py-1 text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 rounded-md transition-all"
                         >
-                          ✏️ Rename
+                          <Edit3 className="inline-block w-3 h-3 mr-1" /> Rename
                         </button>
                         <button 
                           onClick={() => handleDeleteDataset(d.id, d.filename)}
                           className="px-2.5 py-1 text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-100 hover:bg-rose-100 rounded-md transition-all"
                         >
-                          🗑️ Hapus
+                          <Trash2 className="inline-block w-3 h-3 mr-1" /> Hapus
                         </button>
                       </td>
                     </tr>
@@ -229,7 +224,6 @@ export default function TrainingTab({ datasets, fetchAdminData, setDatasets, han
           )}
         </div>
 
-        {/* Paginasi Dataset */}
         {datasets.length > ROWS_PER_PAGE && (
           <div className="flex items-center justify-between border-t border-slate-100 pt-4 mt-4 text-xs">
             <span className="text-slate-400">

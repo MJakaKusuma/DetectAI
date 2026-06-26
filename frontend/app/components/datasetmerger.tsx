@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useToast } from "../components/toast";
+import { AlertTriangle, CheckCircle } from "react-feather";
 
 interface DatasetMergerProps {
   onUploadSuccess: (datasetId: number, rowCount: number) => void;
@@ -212,7 +213,7 @@ export default function DatasetMerger({ onUploadSuccess }: DatasetMergerProps) {
         
         {humanFile && aiFile && !isBalanced ? (
           <div className="p-4 bg-rose-50 border border-rose-100 text-rose-800 rounded-xl flex gap-3 text-xs animate-fade-in">
-            <span className="text-lg">⚠️</span>
+            <span className="text-lg"><AlertTriangle className="w-5 h-5 text-rose-500" /></span>
             <div>
               <p className="font-bold uppercase tracking-wider text-[10px] text-rose-950 mb-0.5">Penggabungan Ditolak</p>
               <p className="leading-relaxed text-rose-900">Jumlah baris data tidak seimbang (Human: {humanCount} vs AI: {aiCount}). Sistem menolak proses penggabungan guna mencegah bias klasifikasi (*Class Imbalance*).</p>
@@ -220,7 +221,7 @@ export default function DatasetMerger({ onUploadSuccess }: DatasetMergerProps) {
           </div>
         ) : isBalanced ? (
           <div className="p-4 bg-emerald-50 border border-emerald-100 text-emerald-800 rounded-xl flex gap-3 text-xs animate-fade-in">
-            <span className="text-lg">✅</span>
+            <span className="text-lg"><CheckCircle className="w-5 h-5 text-emerald-500" /></span>
             <div>
               <p className="font-bold uppercase tracking-wider text-[10px] text-emerald-950 mb-0.5">Validasi Lolos</p>
               <p className="leading-relaxed text-emerald-900">Jumlah data seimbang (masing-masing memiliki {humanCount} baris). Tombol penggabungan dan unggah sekarang aktif.</p>

@@ -5,6 +5,7 @@ import { apiRequest } from "../../lib/api";
 import { AlertCallout, ScannerLoader } from "../../components/dashboardwidgets";
 import { useToast } from "../../components/toast";
 import { PredictionResponse, AiKeyword } from "../types";
+import { RefreshCw, BarChart2, Edit3, Search, Cpu, User, AlertTriangle, Target } from "react-feather";
 
 interface AnalyzerTabProps {
   username: string | null;
@@ -249,7 +250,7 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
           <div className="p-6 bg-slate-50 border border-slate-200 rounded-xl text-center mb-8">
             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Kesimpulan Klasifikasi</p>
             <h2 className={`text-3xl font-black mt-2 uppercase ${result.prediction === "AI" ? "text-rose-600" : "text-emerald-600"}`}>
-              {result.prediction === "AI" ? "🤖 AI Generated (Mesin)" : "👤 Human Written (Manusia)"}
+              {result.prediction === "AI" ? <><Cpu className="inline-block w-8 h-8 mr-2" /> AI Generated (Mesin)</> : <><User className="inline-block w-8 h-8 mr-2" /> Human Written (Manusia)</>}
             </h2>
             <p className="text-xs text-slate-500 mt-2">Dengan Tingkat Probabilitas Keyakinan Sebesar: <span className="font-bold text-slate-800">{result.confidence}</span></p>
           </div>
@@ -347,7 +348,7 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
                 }}
                 className="w-full mt-4 py-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-sm uppercase tracking-wider transition-all"
               >
-                🔄 Lakukan Uji Ulang Teks Baru
+                <RefreshCw className="inline-block w-4 h-4 mr-2" /> Lakukan Uji Ulang Teks Baru
               </button>
             )}
           </div>
@@ -379,7 +380,7 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
                         : "text-slate-400 hover:text-slate-600"
                     }`}
                   >
-                    📊 Overview
+                    <BarChart2 className="inline-block w-3 h-3 mr-1" /> Overview
                   </button>
                   <button 
                     type="button"
@@ -390,7 +391,7 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
                         : "text-slate-400 hover:text-slate-600"
                     }`}
                   >
-                    ✍️ Stilometri
+                    <Edit3 className="inline-block w-3 h-3 mr-1" /> Stilometri
                   </button>
                   <button 
                     type="button"
@@ -401,7 +402,7 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
                         : "text-slate-400 hover:text-slate-600"
                     }`}
                   >
-                    🔍 Kosakata
+                    <Search className="inline-block w-3 h-3 mr-1" /> Kosakata
                   </button>
                 </div>
 
@@ -447,7 +448,7 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
                         {result.prediction === "AI" ? "Mesin" : "Manusia"}
                       </span>
                       <h3 className={`text-2xl font-black mt-2 uppercase ${result.prediction === "AI" ? "text-rose-600" : "text-emerald-600"}`}>
-                        {result.prediction === "AI" ? "🤖 AI Generated" : "👤 Human Written"}
+                        {result.prediction === "AI" ? <><Cpu className="inline-block w-6 h-6 mr-2" /> AI Generated</> : <><User className="inline-block w-6 h-6 mr-2" /> Human Written</>}
                       </h3>
                     </div>
 
@@ -663,7 +664,7 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
                       {/* Bagian 1: Teori Rumus TF-IDF */}
                       <div className="space-y-1">
                         <p className="font-bold text-slate-700 uppercase tracking-wider text-[9px] flex items-center gap-1">
-                          <span>📊</span> Bagaimana TF-IDF Menilai Ini?
+                          <span><BarChart2 className="inline-block w-3 h-3 mr-1" /></span> Bagaimana TF-IDF Menilai Ini?
                         </p>
                         <p className="text-slate-500">
                           Sistem mengalikan frekuensi kata pada dokumen ini (Term Frequency) dengan tingkat kelangkaan kata tersebut pada basis data master (Inverse Document Frequency). Kata di atas disorot karena secara statistik merupakan kosakata favorit yang sering diekstrak oleh model Gemma 4 dibanding data pembanding manusia.
@@ -676,7 +677,7 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
                       {/* Bagian 2: Teori Bobot Koefisien Model */}
                       <div className="space-y-1">
                         <p className="font-bold text-slate-700 uppercase tracking-wider text-[9px] flex items-center gap-1">
-                          <span>🎯</span> Kategori Tingkat Pembobotan:
+                          <span><Target className="inline-block w-3 h-3 mr-1" /></span> Kategori Tingkat Pembobotan:
                         </p>
                         <p className="text-slate-500">
                           Sistem membagi 15 kata kunci teratas menjadi 3 tingkatan: High (Bobot koefisien tinggi), Medium (Bobot koefisien sedang), dan Low (Bobot koefisien rendah) berdasarkan nilai statistik asli dari koefisien keputusan model Regresi Logistik.
@@ -709,7 +710,7 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
                       onClick={() => setShowFeedbackForm(true)} 
                       className="text-[10px] font-bold text-slate-400 hover:text-indigo-600 hover:underline flex items-center justify-center gap-1.5 w-full py-1.5 border border-dashed border-slate-200 rounded-lg hover:border-indigo-300 transition-all"
                     >
-                      ⚠️ Deteksi Kurang Tepat? Berikan Koreksi
+                      <AlertTriangle className="inline-block w-3 h-3 mr-1" /> Deteksi Kurang Tepat? Berikan Koreksi
                     </button>
                   ) : (
                     <div className="p-4 bg-slate-50 border border-slate-150 rounded-xl space-y-3 animate-fade-in text-xs">
@@ -722,7 +723,7 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
                             correctLabel === "Human" ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-white border-slate-200 text-slate-400"
                           }`}
                         >
-                          👤 Manusia
+                          <User className="inline-block w-4 h-4 mr-2" /> Manusia
                         </button>
                         <button 
                           type="button" 
@@ -731,7 +732,7 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
                             correctLabel === "AI" ? "bg-rose-50 border-rose-200 text-rose-700" : "bg-white border-slate-200 text-slate-400"
                           }`}
                         >
-                          🤖 AI
+                          <Cpu className="inline-block w-4 h-4 mr-2" /> AI
                         </button>
                       </div>
                       <textarea
