@@ -32,7 +32,6 @@ def update_global_ai_keywords():
 
 def load_active_models():
     db = SessionLocal()
-    # Ambil jalur absolut folder backend (misal: /code/ di Hugging Face)
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     
     try:
@@ -40,7 +39,6 @@ def load_active_models():
         active_info = db.query(ModelVersion).filter(ModelVersion.is_active == True).first()
         
         if active_info:
-            # PENTING: Bersihkan path agar tidak terjadi duplikasi folder 'models/models/...'
             clean_path = active_info.model_path.replace("models/", "") if active_info.model_path.startswith("models/") else active_info.model_path
             
             m_path = os.path.join(base_dir, "models", clean_path)
@@ -49,10 +47,9 @@ def load_active_models():
             print(f"[System] Mencoba memuat file fisik di: {m_path}")
             
             if os.path.exists(m_path):
-                # PROSES PEMUATAN UTAMA
                 ml_registry.model = joblib.load(m_path)
                 ml_registry.tfidf = joblib.load(t_path)
-                ml_registry.model_loading_error = None # Hapus error jika sukses
+                ml_registry.model_loading_error = None
                 update_global_ai_keywords()
                 print(f"✅ SUKSES: Model {active_info.version_name} aktif di memori.")
             else:
@@ -63,7 +60,6 @@ def load_active_models():
             print(f"⚠️ WARNING: {ml_registry.model_loading_error}")
 
     except Exception as e:
-        # Menangkap pesan error secara sangat detail (Traceback)
         error_type = type(e).__name__
         error_msg = str(e)
         ml_registry.model_loading_error = f"Tipe: {error_type} | Pesan: {error_msg}"
