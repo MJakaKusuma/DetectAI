@@ -79,8 +79,7 @@ async def predict(
         
         res_label = "AI" if prediction == 1 else "Human"
         conf_value = float(np.max(probability))
-        
-        # Ekstrak nilai stilometri mentah
+
         raw_avg_sent = float(style_feat[0][0])
         raw_lex_div = float(style_feat[0][1])
         raw_punct_dens = float(style_feat[0][2])

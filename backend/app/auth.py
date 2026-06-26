@@ -13,26 +13,18 @@ from .models import User
 from .schemas import UserCreate
 
 load_dotenv()
-# ==========================
-# KONFIGURASI KEAMANAN
-# ==========================
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
-# ==========================
-# FUNGSI UTILITY PASSWORD (Direct Bcrypt)
-# ==========================
 
 def get_password_hash(password: str) -> str:
     """Mengubah password menjadi hash menggunakan bcrypt secara langsung"""
-    # Password harus diubah menjadi bytes sebelum di-hash
     pwd_bytes = password.encode('utf-8')
     salt = bcrypt.gensalt()
     hashed_password = bcrypt.hashpw(pwd_bytes, salt)
-    # Simpan hasil hash sebagai string agar bisa masuk ke MySQL VARCHAR
     return hashed_password.decode('utf-8')
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -41,9 +33,6 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     hashed_bytes = hashed_password.encode('utf-8')
     return bcrypt.checkpw(pwd_bytes, hashed_bytes)
 
-# ==========================
-# FUNGSI JWT TOKEN (Tetap Sama)
-# ==========================
 
 def create_access_token(data: dict):
     to_data = data.copy()
@@ -77,10 +66,6 @@ def check_admin_role(current_user: User = Depends(get_current_user)):
             detail="Akses ditolak. Anda tidak memiliki hak akses Administrator."
         )
     return current_user
-
-# ==========================
-# ROUTER AUTH
-# ==========================
 
 router = APIRouter()
 
