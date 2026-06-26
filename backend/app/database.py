@@ -7,11 +7,6 @@ import datetime
 
 load_dotenv()
 
-# ==============================================================================
-# KONFIGURASI DATABASE
-# ==============================================================================
-# Format: mysql+pymysql://user:password@host/db_name
-# GANTI 'root' dan 'password_anda' sesuai dengan settingan MySQL Anda
 DATABASE_URL = os.getenv("DATABASE_URL")
 SSL_CA_PATH = os.getenv("SSL_CA_PATH")
 
@@ -21,7 +16,6 @@ connect_args = {
     }
 }
 
-# Create Engine: Mesin utama yang menghubungkan Python ke MySQL
 engine = create_engine(
     DATABASE_URL, 
     pool_recycle=3600, 
@@ -29,15 +23,10 @@ engine = create_engine(
     connect_args=connect_args 
 )
 
-# SessionLocal: Pabrik untuk membuat session (transaksi) database
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Base: Kelas induk yang digunakan oleh semua model tabel di models.py
 Base = declarative_base()
 
-# ==============================================================================
-# DEPENDENCY UNTUK FASTAPI
-# ==============================================================================
 def get_db():
     """
     Fungsi ini digunakan sebagai Dependency di FastAPI.
