@@ -3,8 +3,6 @@ import numpy as np
 import joblib
 from sklearn.metrics import accuracy_score, f1_score, confusion_matrix, classification_report
 
-# 1. Memuat berkas dataset pengujian eksternal dari folder uploads
-# Pastikan berkas CSV eksternal Anda diletakkan pada folder uploads
 file_test = "uploads/external_blind_test.csv"
 
 try:
@@ -14,8 +12,6 @@ except Exception as e:
     print(f"Gagal memuat berkas, {e}")
     exit()
 
-# 2. Memuat modul praproses eksternal
-# Mengimpor fungsi pembersihan dan stilometri secara dinamis
 try:
     from app.ml_logic import clean_text, extract_stylometry
     from tqdm import tqdm
@@ -23,16 +19,13 @@ except ImportError:
     print("Gagal mengimpor modul ml_logic atau tqdm")
     exit()
 
-# 3. Proses praproses data teks eksternal
 print("Pembersihan naskah teks eksternal...")
 df_test["clean_text"] = df_test["text"].apply(clean_text)
 
-# 4. Ekstraksi 7 fitur stilometrik dokumen menggunakan nlp-id
 print("Ekstraksi 7 fitur stilometrik menggunakan nlp-id & numpy...")
 tqdm.pandas()
 df_test[["avg_sent_len", "lex_div", "punct_dens", "sent_len_var", "noun_dens", "verb_dens", "adj_dens"]] = df_test["clean_text"].progress_apply(extract_stylometry)
 
-# 5. Memuat model hibrida dan vectorizer dari folder models
 try:
     vectorizer = joblib.load("models/tfidf_vectorizer_testing_test.pkl")
     model = joblib.load("models/logistic_model_testing_test.pkl")
@@ -41,33 +34,25 @@ except Exception as e:
     print(f"Gagal memuat model, {e}")
     exit()
 
-# 6. Ekstraksi TF-IDF untuk teks eksternal
 print("Ekstraksi pembobotan kata TF-IDF...")
 tfidf_matrix = vectorizer.transform(df_test["clean_text"]).toarray()
 
-# 7. Menggabungkan fitur leksikal dan stilometrik (1.007 dimensi)
 stilo_features = df_test[["avg_sent_len", "lex_div", "punct_dens", "sent_len_var", "noun_dens", "verb_dens", "adj_dens"]].values
 X_hybrid_test = np.hstack((tfidf_matrix, stilo_features))
 y_test_true = df_test["label"]
 
-# 8. Mengeksekusi prediksi global dan probabilitas model secara instan
 print("Mengeksekusi pengujian model hibrida...")
 y_pred = model.predict(X_hybrid_test)
-y_proba = model.predict_proba(X_hybrid_test) # Menghasilkan array probabilitas [P(0), P(1)]
+y_proba = model.predict_proba(X_hybrid_test)
 
-# ==============================================================================
-# 9. EVALUASI METRIK UNIVERSAL KESELURUHAN DATASET (GLOBAL)
-# ==============================================================================
 acc_universal = accuracy_score(y_test_true, y_pred)
 f1_universal = f1_score(y_test_true, y_pred, average="weighted")
 conf_matrix = confusion_matrix(y_test_true, y_pred)
 tn, fp, fn, tp = conf_matrix.ravel()
 
-# Mencari indeks baris pengujian yang benar dan salah secara global
 correct_global_idx = np.where(y_test_true == y_pred)[0]
 incorrect_global_idx = np.where(y_test_true != y_pred)[0]
 
-# Ekstrak tingkat keyakinan (probabilitas kelas yang diprediksi) secara global
 global_conf_scores = np.array([y_proba[i, pred] for i, pred in enumerate(y_pred)]) * 100
 
 mean_conf_correct_global = np.mean(global_conf_scores[correct_global_idx]) if len(correct_global_idx) > 0 else 0.0
@@ -89,9 +74,6 @@ print(f"Rata-Rata Keyakinan saat Prediksi BENAR   , {mean_conf_correct_global:.2
 print(f"Rata-Rata Keyakinan saat Prediksi SALAH   , {mean_conf_incorrect_global:.2f}%")
 print("="*90)
 
-# ==============================================================================
-# 10. EVALUASI DAN TINGKAT KEYAKINAN KESELURUHAN TIAP MODEL/SUMBER SECARA MANDIRI
-# ==============================================================================
 print("\n" + "="*115)
 print("     ANALISIS KINERJA & TINGKAT KEYAKINAN KESELURUHAN UNTUK TIAP MODEL/SUMBER DATA")
 print("="*115)
@@ -99,30 +81,24 @@ print(f"{'Nama Model / Sumber Data':<25} | {'Sampel (N)':<10} | {'Accuracy':<10}
 print("-"*115)
 
 for model_name in df_test["model"].unique():
-    # Mengambil indeks baris data yang sesuai dengan nama model/sumber saat ini
     indices = df_test.index[df_test["model"] == model_name].tolist()
     n_samples = len(indices)
     
     y_true_sub = y_test_true.iloc[indices].values
     y_pred_sub = y_pred[indices]
     proba_sub = y_proba[indices]
-    
-    # Hitung akurasi spesifik untuk subset model ini
+
     acc_sub = accuracy_score(y_true_sub, y_pred_sub)
-    
-    # Ekstrak tingkat keyakinan (probabilitas kelas yang diprediksi) untuk subset ini
+
     conf_scores_sub = np.array([proba_sub[i, pred] for i, pred in enumerate(y_pred_sub)]) * 100
-    
-    # Pisahkan indeks prediksi benar dan salah di dalam subset ini
+
     correct_idx = np.where(y_true_sub == y_pred_sub)[0]
     incorrect_idx = np.where(y_true_sub != y_pred_sub)[0]
-    
-    # Hitung rata-rata tingkat keyakinan
+
     mean_conf_all = np.mean(conf_scores_sub) if len(conf_scores_sub) > 0 else 0.0
     mean_conf_correct = np.mean(conf_scores_sub[correct_idx]) if len(correct_idx) > 0 else 0.0
     mean_conf_incorrect = np.mean(conf_scores_sub[incorrect_idx]) if len(incorrect_idx) > 0 else 0.0
-    
-    # Format penyajian teks persentase
+
     conf_all_label = f"{mean_conf_all:.2f}%"
     conf_correct_label = f"{mean_conf_correct:.2f}%"
     
