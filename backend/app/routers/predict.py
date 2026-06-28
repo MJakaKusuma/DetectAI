@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
 from sqlalchemy.orm import Session
 import numpy as np
+from jose import jwt
 
 from app.database import get_db
 from app.models import User, Prediction, ModelVersion, Feedback
@@ -48,7 +49,6 @@ async def get_user_history(
         for p in predictions
     ]
 
-
 @router.post("/predict")
 async def predict(
     text_request: TextRequest, 
@@ -56,19 +56,42 @@ async def predict(
     db: Session = Depends(get_db)
 ):
     if ml_registry.model is None or ml_registry.tfidf is None:
-        raise HTTPException(status_code=503, detail=f"Model belum dimuat. Silakan periksa server. Detail Error: {ml_registry.model_loading_error}")
+        raise HTTPException(
+            status_code=503, 
+            detail=f"Model belum dimuat. Silakan periksa server. Detail Error: {ml_registry.model_loading_error}"
+        )
+
+    # Inisialisasi awal variabel untuk menghindari NameError di blok finally jika terjadi crash di awal
+    tfidf_feat = None
+    style_feat = None
 
     try:
         cleaned = clean_text(text_request.text)
 
+        # 1. Transformasi Leksikal TF-IDF (Sesuai model teraktif)
         tfidf_feat = ml_registry.tfidf.transform([cleaned]).toarray()
-        style_feat = np.array(extract_stylometry(cleaned)).reshape(1, -1)
+        
+        # 2. Ekstraksi Fitur Stilometrik 35 Dimensi
+        style_feat_list = extract_stylometry(cleaned)
+        style_feat = np.array(style_feat_list).reshape(1, -1)
 
+        # 3. Penggabungan Fitur Leksikal & Stilometri
         combined = np.hstack((tfidf_feat, style_feat))
 
+        # 4. Standardisasi Penskalaan dengan MaxAbsScaler (Jika Scaler Tersedia)
+        if ml_registry.scaler is not None:
+            combined = ml_registry.scaler.transform(combined)
+
+        # 5. Validasi Kecocokan Jumlah Fitur Dinamis
+        expected_features = ml_registry.model.n_features_in_
+        if combined.shape[1] != expected_features:
+            raise HTTPException(
+                status_code=500, 
+                detail=f"Feature mismatch: Model aktif membutuhkan {expected_features} fitur, tetapi input menghasilkan {combined.shape[1]}."
+            )
+
+        # 6. Menjalankan Prediksi dan Estimasi Probabilitas
         prediction = ml_registry.model.predict(combined)[0]
-        if combined.shape[1] != 1007:
-            raise HTTPException(status_code=500, detail="Feature mismatch")
         probability = ml_registry.model.predict_proba(combined)[0]
 
     except Exception as e:
@@ -76,26 +99,25 @@ async def predict(
         raise HTTPException(status_code=500, detail=str(e))
     
     try:
-        
         res_label = "AI" if prediction == 1 else "Human"
         conf_value = float(np.max(probability))
 
-        raw_avg_sent = float(style_feat[0][0])
-        raw_lex_div = float(style_feat[0][1])
-        raw_punct_dens = float(style_feat[0][2])
-        raw_sent_len_var = float(style_feat[0][3])
-        raw_noun_dens = float(style_feat[0][4])
-        raw_verb_dens = float(style_feat[0][5])
-        raw_adj_dens = float(style_feat[0][6])
+        # Pemetaan balik yang presisi berdasarkan posisi indeks pada 35 dimensi array baru:
+        raw_avg_sent = float(style_feat[0][0])       # index 0: avg_sent_len
+        raw_sent_len_var = float(style_feat[0][1])   # index 1: sent_len_var
+        raw_lex_div = float(style_feat[0][6])        # index 6: lex_div
+        raw_punct_dens = float(style_feat[0][11])    # index 11: punct_dens
+        raw_noun_dens = float(style_feat[0][23])     # index 23: noun_dens
+        raw_verb_dens = float(style_feat[0][24])     # index 24: verb_dens
+        raw_adj_dens = float(style_feat[0][25])      # index 25: adj_dens
 
+        # Autentikasi Pengguna Opsional dari Token Bearer di Header
         logged_user_id = None
         authorization = request.headers.get("Authorization")
         
         if authorization and authorization.startswith("Bearer "):
             try:
                 token = authorization.split(" ")[1]
-                from jose import jwt
-                
                 payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
                 username: str = payload.get("sub")
                 if username:
@@ -108,6 +130,7 @@ async def predict(
         active_model = db.query(ModelVersion).filter(ModelVersion.is_active == True).first()
         model_v_id = active_model.id if active_model else None
 
+        # Menyimpan Log Hasil Prediksi Ke Database SQL
         new_prediction = Prediction(
             input_text=text_request.text,
             prediction_result=res_label,
@@ -137,9 +160,12 @@ async def predict(
             "ai_keywords": ml_registry.ai_keywords
         }
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Error Database Log: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
     finally:
-        print("TFIDF shape:", tfidf_feat.shape)
-        print("STYLO shape:", style_feat.shape)
+        # Pengecekan aman untuk logging ke konsol server tanpa memicu NameError
+        tfidf_shape = tfidf_feat.shape if tfidf_feat is not None else "Tidak terdefinisi"
+        stylo_shape = style_feat.shape if style_feat is not None else "Tidak terdefinisi"
+        print("TFIDF shape:", tfidf_shape)
+        print("STYLO shape:", stylo_shape)

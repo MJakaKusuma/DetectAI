@@ -1,11 +1,11 @@
 import os
 import shutil
 import datetime
+import time
 from huggingface_hub import HfApi
 import numpy as np
 import pandas as pd
 import joblib
-import time
 
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
 from sqlalchemy.orm import Session
@@ -13,6 +13,7 @@ from sqlalchemy import func, text
 
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.preprocessing import MaxAbsScaler
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, f1_score
 
@@ -116,6 +117,9 @@ async def upload_dataset(
     timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%S")
     filename_only, file_extension = os.path.splitext(file.filename)
     unique_filename = f"{filename_only}_{timestamp}{file_extension}"
+    
+    # Membuat folder penyimpanan jika belum ada
+    os.makedirs("uploads", exist_ok=True)
     file_path = f"uploads/{unique_filename}"
     
     with open(file_path, "wb") as buffer:
@@ -150,9 +154,6 @@ async def retrain_model(
     admin: User = Depends(check_admin_role),
     db: Session = Depends(get_db)
 ):
-
-    global model, tfidf 
-
     dataset_record = db.query(Dataset).filter(Dataset.id == dataset_id).first()
     if not dataset_record:
         raise HTTPException(status_code=404, detail="Dataset tidak ditemukan di database.")
@@ -163,6 +164,7 @@ async def retrain_model(
         if 'text' not in df_new.columns or 'label' not in df_new.columns:
             raise HTTPException(status_code=400, detail="Dataset harus memiliki kolom 'text' dan 'label'.")
 
+        # Menggabungkan dengan dataset dasar jika ada untuk mempertahankan history pembelajaran
         if os.path.exists("final_detection_dataset.csv"):
             df_base = pd.read_csv("final_detection_dataset.csv")
             df_combined = pd.concat([df_base, df_new], ignore_index=True)
@@ -172,69 +174,99 @@ async def retrain_model(
         df_combined = df_combined.drop_duplicates(subset=['text']).reset_index(drop=True)
         df_combined['clean_text'] = df_combined['text'].apply(clean_text)
 
+        # 1. Ekstraksi 35 Dimensi Fitur Stilometri (Looping Teroptimasi)
         style_features_list = []
-        print(f"Memulai ekstraksi stilometri untuk {len(df_combined)} baris...")
+        print(f"[Retrain] Mengekstrak 35 fitur gaya bahasa dari {len(df_combined)} baris teks...")
         
         for t in df_combined['clean_text']:
             feat = extract_stylometry(t)
-
-            style_features_list.append(feat.values if hasattr(feat, 'values') else feat)
+            style_features_list.append(feat)
 
         style_features_np = np.array(style_features_list)
 
-        new_tfidf_vectorizer = TfidfVectorizer(max_features=1000)
+        # 2. Fitur Leksikal TF-IDF (Membatasi ke 500 n-gram unigram/bigram untuk performa stabil)
+        new_tfidf_vectorizer = TfidfVectorizer(max_features=500, ngram_range=(1, 2), sublinear_tf=True)
         X_tfidf_only = new_tfidf_vectorizer.fit_transform(df_combined['clean_text']).toarray()
 
-        X_hybrid = np.hstack((X_tfidf_only, style_features_np))
-
+        # Gabungkan raw leksikal dan stilometri secara horizontal
+        X_hybrid_raw = np.hstack((X_tfidf_only, style_features_np))
         y_new = df_combined['label'].apply(lambda x: 1 if str(x).lower() in ['1', 'ai'] else 0)
 
-        X_train_h, X_test_h, y_train, y_test = train_test_split(X_hybrid, y_new, test_size=0.2, random_state=42)
+        # 3. Train/Test Split (80/20) sebelum penskalaan untuk menjaga data leakage
+        X_train_raw, X_test_raw, y_train, y_test = train_test_split(
+            X_hybrid_raw, y_new, test_size=0.2, random_state=42
+        )
 
-        model_hybrid = LogisticRegression(max_iter=1000)
-        model_hybrid.fit(X_train_h, y_train)
+        # 4. Normalisasi hibrida menggunakan MaxAbsScaler untuk menjaga sparsity TF-IDF
+        new_scaler = MaxAbsScaler()
+        X_train_scaled = new_scaler.fit_transform(X_train_raw)
+        X_test_scaled = new_scaler.transform(X_test_raw)
 
-        y_pred = model_hybrid.predict(X_test_h)
+        # 5. Training Regresi Logistik dengan Regularisasi Sangat Kuat (C=0.01) [1]
+        model_hybrid = LogisticRegression(C=0.01, max_iter=10000, random_state=42)
+        model_hybrid.fit(X_train_scaled, y_train)
+
+        # Evaluasi akurasi & F1-score hibrida
+        y_pred = model_hybrid.predict(X_test_scaled)
         acc_hybrid = float(accuracy_score(y_test, y_pred))
         f1_h = float(f1_score(y_test, y_pred))
 
         version_code = datetime.datetime.utcnow().strftime("%Y%m%d%H%M")
 
+        # Membuat folder penyimpanan models lokal jika belum ada
+        os.makedirs("models", exist_ok=True)
+
         active_model_path = 'models/logistic_model.pkl'
         active_tfidf_path = 'models/tfidf_vectorizer.pkl'
+        active_scaler_path = 'models/scaler_style.pkl'
 
         archive_model_path = f"models/logistic_model_{version_code}.pkl"
         archive_tfidf_path = f"models/tfidf_vectorizer_{version_code}.pkl"
+        archive_scaler_path = f"models/scaler_style_{version_code}.pkl"
 
+        # Simpan file fisik secara lokal (Aktif dan Arsip)
         joblib.dump(model_hybrid, active_model_path)
         joblib.dump(new_tfidf_vectorizer, active_tfidf_path)
+        joblib.dump(new_scaler, active_scaler_path)
+
         joblib.dump(model_hybrid, archive_model_path) 
         joblib.dump(new_tfidf_vectorizer, archive_tfidf_path)
+        joblib.dump(new_scaler, archive_scaler_path)
 
-        global model, tfidf
-        model = model_hybrid
-        tfidf = new_tfidf_vectorizer
+        # Update variable memori runtime aktif server
+        ml_registry.model = model_hybrid
+        ml_registry.tfidf = new_tfidf_vectorizer
+        ml_registry.scaler = new_scaler
         update_global_ai_keywords()
 
+        # Sinkronisasi ke Hugging Face Space (jika token dideklarasikan)
         hf_token = os.getenv("HF_TOKEN")
         repo_id = "shouwiku/detectai-backend" 
 
         if hf_token:
             try:
-                from huggingface_hub import HfApi
                 api = HfApi()
-                print(f"[HF-HUB] Sinkronisasi sepasang model versi {version_code}...")
+                print(f"[HF-HUB] Sinkronisasi trilogi model versi {version_code}...")
 
-                api.upload_file(path_or_fileobj=active_model_path, path_in_repo=active_model_path, repo_id=repo_id, repo_type="space", token=hf_token)
-                api.upload_file(path_or_fileobj=archive_model_path, path_in_repo=archive_model_path, repo_id=repo_id, repo_type="space", token=hf_token)
+                file_list = [
+                    active_model_path, archive_model_path,
+                    active_tfidf_path, archive_tfidf_path,
+                    active_scaler_path, archive_scaler_path
+                ]
 
-                api.upload_file(path_or_fileobj=active_tfidf_path, path_in_repo=active_tfidf_path, repo_id=repo_id, repo_type="space", token=hf_token)
-                api.upload_file(path_or_fileobj=archive_tfidf_path, path_in_repo=archive_tfidf_path, repo_id=repo_id, repo_type="space", token=hf_token)
-
-                print(f"[HF-HUB] BERHASIL! Model dan TF-IDF versi {version_code} telah diunggah.")
+                for file_p in file_list:
+                    api.upload_file(
+                        path_or_fileobj=file_p, 
+                        path_in_repo=file_p, 
+                        repo_id=repo_id, 
+                        repo_type="space", 
+                        token=hf_token
+                    )
+                print(f"[HF-HUB] BERHASIL! Model, TF-IDF, dan Scaler telah terunggah.")
             except Exception as hf_err:
                 print(f"[HF-HUB ERROR] Gagal upload: {str(hf_err)}")
 
+        # Update status database
         db.query(ModelVersion).update({ModelVersion.is_active: False})
         new_version_record = ModelVersion(
             version_name=f"v-{version_code}",
@@ -247,39 +279,7 @@ async def retrain_model(
         db.add(new_version_record)
         db.commit()
 
-        df_combined.to_csv("final_detection_dataset.csv", index=False, encoding="utf-8-sig")
-
-        return {
-            "status": "success",
-            "message": "Retraining sukses! Model di server & repositori telah diperbarui.",
-            "version": f"v-{version_code}",
-            "accuracy": f"{acc_hybrid * 100:.2f}%"
-        }
-    except Exception as e:
-        db.rollback()
-        print(f"Error Retrain: {str(e)}")
-
-        model = model_hybrid
-        tfidf = new_tfidf_vectorizer
-
-        update_global_ai_keywords()
-
-        db.query(ModelVersion).update({ModelVersion.is_active: False})
-        
-        new_version_record = ModelVersion(
-            version_name=f"v-{version_code}",
-            accuracy=acc_hybrid, 
-            f1_score=f1_h,
-            dataset_id=dataset_id,
-            model_path=f"models/logistic_model_{version_code}.pkl",
-            is_active=True
-        )
-        # Simpan juga file cadangan/arsip
-        joblib.dump(model_hybrid, new_version_record.model_path)
-
-        db.add(new_version_record)
-        db.commit()
-
+        # Simpan basis data komparatif yang diperluas
         df_combined.to_csv("final_detection_dataset.csv", index=False, encoding="utf-8-sig")
 
         return {
@@ -289,7 +289,6 @@ async def retrain_model(
             "accuracy": f"{acc_hybrid * 100:.2f}%",
             "f1_score": f"{f1_h * 100:.2f}%"
         }
-
     except Exception as e:
         db.rollback()
         print(f"Error Retrain: {str(e)}")
@@ -343,10 +342,16 @@ async def activate_model_version(
     try:
         model_path = target_model.model_path
         tfidf_path = target_model.model_path.replace("logistic_model", "tfidf_vectorizer")
+        scaler_path = target_model.model_path.replace("logistic_model", "scaler_style")
         
         shutil.copy(model_path, 'models/logistic_model.pkl')
         shutil.copy(tfidf_path, 'models/tfidf_vectorizer.pkl')
         
+        # Penanganan fallback aman untuk model lama yang belum memiliki scaler
+        if os.path.exists(scaler_path):
+            shutil.copy(scaler_path, 'models/scaler_style.pkl')
+        
+        # Pemuatan ulang model aktif ke memori server
         get_models()
         
         db.query(ModelVersion).update({ModelVersion.is_active: False})
