@@ -7,7 +7,7 @@ from app.models import ModelVersion
 class MLRegistry:
     model = None
     tfidf = None
-    scaler = None  # <-- Ditambahkan slot scaler untuk MaxAbsScaler
+    scaler = None
     ai_keywords = []
     model_loading_error = "Belum ada upaya pemuatan" 
 
@@ -43,22 +43,21 @@ def load_active_models():
             
             m_path = os.path.join(base_dir, "models", clean_path)
             t_path = m_path.replace("logistic_model", "tfidf_vectorizer")
-            s_path = m_path.replace("logistic_model", "scaler_style")  # Mappings ke scaler pkl
+            s_path = m_path.replace("logistic_model", "scaler_style")
             
-            print(f"[System] Mencoba memuat berkas di:\n - Model: {m_path}\n - TF-IDF: {t_path}\n - Scaler: {s_path}")
+            print(f"[System] Mencoba memuat file fisik di:\n - Model: {m_path}\n - TF-IDF: {t_path}\n - Scaler: {s_path}")
             
             if os.path.exists(m_path):
                 ml_registry.model = joblib.load(m_path)
                 ml_registry.tfidf = joblib.load(t_path)
                 
-                # Memuat scaler secara dinamis jika tersedia
                 if os.path.exists(s_path):
                     ml_registry.scaler = joblib.load(s_path)
-                    print("✅ Scaler berhasil dimuat.")
+                    print("✅ SUKSES: MaxAbsScaler berhasil dimuat.")
                 else:
                     ml_registry.scaler = None
                     print("⚠️ WARNING: Scaler tidak ditemukan. Inferensi berjalan tanpa penskalaan.")
-                
+                    
                 ml_registry.model_loading_error = None
                 update_global_ai_keywords()
                 print(f"✅ SUKSES: Model {active_info.version_name} aktif di memori.")

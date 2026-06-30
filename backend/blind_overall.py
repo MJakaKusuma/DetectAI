@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import joblib
+from scipy.sparse import hstack, csr_matrix
 from sklearn.metrics import accuracy_score, f1_score, confusion_matrix, classification_report
 from tqdm import tqdm
 
@@ -30,15 +31,14 @@ except Exception as e:
 print("Pembersihan naskah teks eksternal (Preprocessing)...")
 df_test["clean_text"] = df_test["text"].apply(clean_text)
 
-
-# 3. EXTRAK 35 FITUR STILOMETRI INDONESIA (SINKRON DENGAN TRAINING)
+# 3. EXTRAK 35 FITUR STILOMETRI INDONESIA (SINKRON DENGAN TRAINING - WAJIB 35 FITUR)
 def extract_stylometry_35(text):
     """
-    Ekstraksi 35 parameter gaya penulisan Bahasa Indonesia.
-    Sesuai dengan blueprint model hibrida teroptimasi.
+    Ekstraksi 35 parameter gaya penulisan Bahasa Indonesia asli mentah.
+    Sengaja disinkronkan kembali menjadi 35 agar tidak ditolak oleh model yang mengharapkan 535 dimensi.
     """
     if not isinstance(text, str) or len(text.strip()) == 0:
-        return pd.Series([0.0] * 35)
+        return [0.0] * 35  # RETURN LIST, BUKAN PD.SERIES!
 
     sentences = [s.strip() for s in text.split('.') if s.strip()]
     num_sentences = len(sentences) if len(sentences) > 0 else 1
@@ -87,7 +87,7 @@ def extract_stylometry_35(text):
     uppercase_ratio = sum(1 for c in text if c.isupper()) / num_chars
     digit_ratio = sum(1 for c in text if c.isdigit()) / num_chars
     
-    # --- KELOMPOK D: SYNTACTIC/POS-TAGGING (12 Fitur - 1-PASS) ---
+    # --- KELOMPOK D: SYNTACTIC/POS-TAGGING (12 Fitur) ---
     try:
         pos_tags = postagger.get_pos_tag(text)
     except Exception:
@@ -121,12 +121,12 @@ def extract_stylometry_35(text):
     det_dens = determiners / total_tags
     part_dens = particles / total_tags
     
-    return pd.Series([
+    return [
         avg_sent_len, sent_len_var, avg_word_len, total_sentences, total_words, char_count,
         lex_div, guiraud_index, herdan_index, hapax_ratio, yules_i,
         punct_dens, comma_ratio, period_ratio, qmark_ratio, excl_ratio, colon_ratio, semicolon_ratio, hyphen_ratio, quote_ratio, bracket_ratio, uppercase_ratio, digit_ratio,
         noun_dens, verb_dens, adj_dens, pronoun_dens, conj_dens, prep_dens, adv_dens, num_dens, foreign_dens, interj_dens, det_dens, part_dens
-    ])
+    ]
 
 print("Ekstraksi 35 fitur stilometri eksternal...")
 tqdm.pandas(desc="Proses Ekstraksi")
@@ -138,34 +138,37 @@ style_cols = [
     'noun_dens', 'verb_dens', 'adj_dens', 'pronoun_dens', 'conj_dens', 'prep_dens', 'adv_dens', 'num_dens', 'foreign_dens', 'interj_dens', 'det_dens', 'part_dens'
 ]
 
-# Ekstraksi 35 fitur stilometri eksternal dari naskah mentah (text)
-df_test[style_cols] = df_test["text"].progress_apply(extract_stylometry_35)
+# Ekstraksi dan penggabungan secara efisien
+style_features_list = df_test["text"].progress_apply(extract_stylometry_35).tolist()
+style_df = pd.DataFrame(style_features_list, columns=style_cols, index=df_test.index)
+df_test = pd.concat([df_test, style_df], axis=1)
 
-# 4. MEMUAT BERKAS MODEL, VECTORIZER, DAN SCALER KEMARIN (SINKRON!)
+# 4. MEMUAT BERKAS MODEL, VECTORIZER, DAN SCALER
 try:
     vectorizer = joblib.load("models/tfidf_vectorizer_testing_test.pkl")
     model = joblib.load("models/logistic_model_testing_test.pkl")
-    scaler = joblib.load("models/scaler_style_testing_test.pkl")  # <-- Memuat MaxAbsScaler
+    scaler = joblib.load("models/scaler_style_testing_test.pkl")  
     print("Berhasil memuat model, vectorizer, dan scaler aktif")
 except Exception as e:
     print(f"Gagal memuat file model: {e}")
     exit()
 
-# 5. TRANFORMASI & PENYUSUNAN VEKTOR HIBRIDA EKSTERNAL
-print("Ekstraksi pembobotan kata TF-IDF (Hanya Transform)...")
-tfidf_matrix = vectorizer.transform(df_test["clean_text"]).toarray()
+# 5. TRANFORMASI & PENYUSUNAN VEKTOR HIBRIDA EKSTERNAL (FULL SPARSE)
+print("Ekstraksi pembobotan kata TF-IDF (Hanya Transform, Sparse Mode)...")
+# HILANGKAN .toarray() !!!
+tfidf_matrix_sparse = vectorizer.transform(df_test["clean_text"])
 
-# Ambil fitur stilometri mentah secara langsung
-stilo_features_raw = df_test[style_cols].values
+# Konversi fitur stilometri ke sparse
+stilo_features_sparse = csr_matrix(df_test[style_cols].values)
 
-# Gabungkan menjadi matriks hibrida mentah
-X_hybrid_test_raw = np.hstack((tfidf_matrix, stilo_features_raw))
+# Gabungkan menjadi matriks hibrida menggunakan scipy.sparse.hstack
+X_hybrid_test_raw = hstack([tfidf_matrix_sparse, stilo_features_sparse]).tocsr()
 
-# Penskalaan aman menggunakan MaxAbsScaler (Hanya .transform!)
+# Penskalaan aman menggunakan MaxAbsScaler
 X_hybrid_test_scaled = scaler.transform(X_hybrid_test_raw)
 y_test_true = df_test["label"]
 
-# 6. MENGEKSEKUSI PREDIKSI MODEL
+# 6. MENGEKSEKUSI PREDIKSI MODEL DENGAN KALIBRASI NON-LINIER
 print("Mengeksekusi pengujian model hibrida pada data luar...")
 y_pred = model.predict(X_hybrid_test_scaled)
 y_proba = model.predict_proba(X_hybrid_test_scaled)
@@ -178,14 +181,13 @@ tn, fp, fn, tp = conf_matrix.ravel()
 # 1. Ambil tingkat keyakinan mentah (raw probability antara 0.5 s.d 1.0)
 raw_conf_scores = np.array([y_proba[i, pred] for i, pred in enumerate(y_pred)])
 
-# 2. TEROPTIMASI: Kalibrasi Non-Linier Gamma Sharpening (gamma = 0.6)
+# 2. Kalibrasi Non-Linier Gamma Sharpening (gamma = 0.6)
 gamma = 0.6
 scaled_conf_scores = 0.5 + 0.5 * np.power((raw_conf_scores - 0.5) / 0.5, gamma)
 
 # 3. Konversikan hasil kalibrasi ke persentase (0 s.d 100)
 global_conf_scores = scaled_conf_scores * 100
 
-# Mencari indeks prediksi benar dan salah
 correct_global_idx = np.where(y_test_true == y_pred)[0]
 incorrect_global_idx = np.where(y_test_true != y_pred)[0]
 
@@ -194,7 +196,7 @@ mean_conf_incorrect_global = np.mean(global_conf_scores[incorrect_global_idx]) i
 
 # 7. MENAMPILKAN LOG HASIL EVALUASI GLOBAL
 print("\n" + "="*90)
-print("     HASIL EVALUASI BLIND TEST EKSTERNAL (GLOBAL/UNIVERSAL - DENGAN MAXABSSCALER)")
+print("    HASIL EVALUASI BLIND TEST EKSTERNAL (GLOBAL/UNIVERSAL - DENGAN MAXABSSCALER)")
 print("="*90)
 print(f"Total Sampel Uji (N)                      : {len(df_test)} dokumen")
 print(f"Akurasi Akhir (Accuracy)                  : {acc_universal:.4f}")
@@ -211,7 +213,7 @@ print("="*90)
 
 # 8. MENAMPILKAN EVALUASI BERDASARKAN MODEL / SUMBER DATA GENERATOR
 print("\n" + "="*115)
-print("     ANALISIS KINERJA & TINGKAT KEYAKINAN KESELURUHAN UNTUK TIAP MODEL/SUMBER DATA")
+print("    ANALISIS KINERJA & TINGKAT KEYAKINAN KESELURUHAN UNTUK TIAP MODEL/SUMBER DATA")
 print("="*115)
 print(f"{'Nama Model / Sumber Data':<25} | {'Sampel (N)':<10} | {'Accuracy':<10} | {'Rerata Conf (Semua)':<18} | {'Rerata Conf (Benar)':<18} | {'Rerata Conf (Salah)'}")
 print("-"*115)
@@ -227,7 +229,7 @@ for model_name in df_test["model"].unique():
     acc_sub = accuracy_score(y_true_sub, y_pred_sub)
 
     raw_conf_sub = np.array([proba_sub[i, pred] for i, pred in enumerate(y_pred_sub)])
-    scaled_conf_sub = 0.5 + 0.5 * np.power((raw_conf_sub - 0.5) / 0.5, 0.6) # Menggunakan gamma 0.6
+    scaled_conf_sub = 0.5 + 0.5 * np.power((raw_conf_sub - 0.5) / 0.5, 0.6) 
     conf_scores_sub = scaled_conf_sub * 100
 
     correct_idx = np.where(y_true_sub == y_pred_sub)[0]

@@ -91,7 +91,7 @@ def extract_stylometry(text):
     adverbs = sum(1 for _, tag in pos_tags if tag == 'RB')
     nums = sum(1 for _, tag in pos_tags if tag == 'NUM')
     foreigns = sum(1 for _, tag in pos_tags if tag == 'FW')
-    interjs = sum(1 for _, tag in pos_tags if tag == 'INT')
+    interjections = sum(1 for _, tag in pos_tags if tag == 'INT')
     determiners = sum(1 for _, tag in pos_tags if tag == 'DET')
     particles = sum(1 for _, tag in pos_tags if tag == 'RP')
     
@@ -104,7 +104,7 @@ def extract_stylometry(text):
     adv_dens = adverbs / total_tags
     num_dens = nums / total_tags
     foreign_dens = foreigns / total_tags
-    interj_dens = interjs / total_tags
+    interj_dens = interjections / total_tags
     det_dens = determiners / total_tags
     part_dens = particles / total_tags
     

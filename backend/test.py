@@ -2,6 +2,7 @@ import os
 import joblib
 import numpy as np
 import pandas as pd
+from scipy.sparse import hstack, csr_matrix
 
 # Menyalakan ANSI Colors untuk visualisasi terminal yang cantik
 os.system("") 
@@ -44,7 +45,6 @@ except Exception as e:
     print(f"{COLOR_RED}Gagal memuat file model di folder 'models/': {e}{COLOR_RESET}")
     exit()
 
-
 def extract_stylometry_35(text):
     """
     Ekstraksi 35 parameter gaya penulisan Bahasa Indonesia asli mentah.
@@ -56,7 +56,6 @@ def extract_stylometry_35(text):
     num_words = len(words) if len(words) > 0 else 1
     num_chars = len(text)
     
-    # --- KELOMPOK A: PANJANG & RITME KALIMAT (6 Fitur) ---
     avg_sent_len = num_words / num_sentences
     sent_len_var = np.std([len(s.split()) for s in sentences]) if len(sentences) > 1 else 0.0
     avg_word_len = num_chars / num_words
@@ -64,7 +63,6 @@ def extract_stylometry_35(text):
     total_words = float(num_words)
     char_count = float(num_chars)
     
-    # --- KELOMPOK B: KEKAYAAN KOSAKATA (5 Fitur) ---
     unique_words = set(words)
     num_unique = len(unique_words) if len(unique_words) > 0 else 1
     lex_div = num_unique / num_words
@@ -81,7 +79,6 @@ def extract_stylometry_35(text):
     M2 = sum(float(c**2) for c in word_counts.values())
     yules_i = (M1 * M1) / (M2 - M1) if (M2 - M1) > 0 else 0.0
     
-    # --- KELOMPOK C: PUNCTUATION & CHARACTER-LEVEL (12 Fitur) ---
     num_punct = sum(1 for c in text if c in '.,?!:;()"-')
     punct_dens = num_punct / num_words
     comma_ratio = text.count(',') / num_words
@@ -96,7 +93,6 @@ def extract_stylometry_35(text):
     uppercase_ratio = sum(1 for c in text if c.isupper()) / num_chars
     digit_ratio = sum(1 for c in text if c.isdigit()) / num_chars
     
-    # --- KELOMPOK D: SYNTACTIC/POS-TAGGING (12 Fitur - 1-PASS) ---
     try:
         pos_tags = postagger.get_pos_tag(text)
     except Exception:
@@ -143,27 +139,40 @@ print(f"\n{COLOR_GREEN}Sistem siap menerima uji teks!{COLOR_RESET}")
 while True:
     print(f"\n{COLOR_BOLD}{COLOR_BLUE}" + "-"*70 + f"{COLOR_RESET}")
     print(f"Ketik/Tempel naskah teks Bahasa Indonesia Anda di bawah ini:")
-    print(f"{COLOR_YELLOW}(Tekan Enter dua kali berturut-turut pada baris kosong jika selesai mengetik){COLOR_RESET}")
-    print(f"(Ketik 'exit' atau 'q' secara langsung lalu Enter untuk keluar dari program)")
+    print(f"{COLOR_YELLOW}(Tekan Enter 2x berturut-turut untuk mengeksekusi analisis){COLOR_RESET}")
+    print(f"(Ketik 'exit' atau 'q' lalu Enter untuk keluar)")
     print("-"*70)
     
-    # Membaca input multi-line
     user_input = []
+    empty_lines_count = 0
+    
+    # Membaca input multi-line dengan aman untuk paragraf beruntun
     while True:
         line = input()
-        if line == '':
+        
+        # Eksekusi cepat jika user ingin keluar
+        if line.strip().lower() in ['q', 'exit', 'quit'] and len(user_input) == 0:
+            user_input = ['exit']
             break
+            
+        if line.strip() == '':
+            empty_lines_count += 1
+            if empty_lines_count >= 2:
+                break
+        else:
+            empty_lines_count = 0
+            
         user_input.append(line)
         
     raw_text = "\n".join(user_input).strip()
     
+    if raw_text.lower() in ['exit', 'q', 'quit']:
+        print(f"\n{COLOR_BOLD}{COLOR_BLUE}Program selesai. Terima kasih telah menggunakan DETECTAI!{COLOR_RESET}")
+        break
+        
     if not raw_text:
         print(f"{COLOR_YELLOW}Peringatan: Input kosong. Silakan masukkan teks.{COLOR_RESET}")
         continue
-        
-    if raw_text.lower() in ['q', 'exit', 'quit']:
-        print(f"\n{COLOR_BOLD}{COLOR_BLUE}Program selesai. Terima kasih telah menggunakan DETECTAI!{COLOR_RESET}")
-        break
         
     # Validasi panjang kata minimal
     word_count_check = len(raw_text.split())
@@ -177,14 +186,15 @@ while True:
         # 1. Pembersihan teks (Preprocessing untuk TF-IDF)
         cleaned_text = clean_text(raw_text)
         
-        # 2. Ekstraksi 35 Fitur Stilometri (Dari teks mentah asli)
-        stilo_features = np.array(extract_stylometry_35(raw_text)).reshape(1, -1)
+        # 2. Ekstraksi TF-IDF (Dibiarkan dalam format Sparse)
+        tfidf_sparse = vectorizer.transform([cleaned_text])
         
-        # 3. Ekstraksi TF-IDF (Hanya Transform)
-        tfidf_feat = vectorizer.transform([cleaned_text]).toarray()
+        # 3. Ekstraksi 35 Fitur Stilometri (Ubah ke Sparse Matrix CSR)
+        stilo_raw = extract_stylometry_35(raw_text)
+        stilo_sparse = csr_matrix(np.array(stilo_raw).reshape(1, -1))
         
-        # 4. Gabungkan dan Normalisasi menggunakan MaxAbsScaler
-        combined_raw = np.hstack((tfidf_feat, stilo_features))
+        # 4. Gabungkan dan Normalisasi menggunakan MaxAbsScaler (Aman untuk Sparse)
+        combined_raw = hstack([tfidf_sparse, stilo_sparse]).tocsr()
         combined_scaled = scaler.transform(combined_raw)
         
         # 5. Klasifikasi & Prediksi Probabilitas
@@ -210,13 +220,13 @@ while True:
         print("-"*50)
         print(f"    ANALISIS PARAMETER GRAFIS STILOMETRI NYATA")
         print("-"*50)
-        print(f"Rerata Panjang Kalimat     : {stilo_features[0][0]:.2f} kata/kalimat")
-        print(f"Variabilitas Kalimat       : {stilo_features[0][1]:.2f} (Sentence Variance)")
-        print(f"Rasio Kosa Kata Unik (TTR) : {stilo_features[0][6]*100:.2f}% kosakata unik")
-        print(f"Rasio Huruf Kapital        : {stilo_features[0][21]*100:.3f}% dari total teks")
-        print(f"Kerapatan Kata Benda (Noun): {stilo_features[0][23]*100:.2f}% dari total POS")
-        print(f"Kerapatan Kata Kerja (Verb): {stilo_features[0][24]*100:.2f}% dari total POS")
-        print(f"Kerapatan Konjungsi (Conj) : {stilo_features[0][27]*100:.2f}% dari total POS")
+        print(f"Rerata Panjang Kalimat     : {stilo_raw[0]:.2f} kata/kalimat")
+        print(f"Variabilitas Kalimat       : {stilo_raw[1]:.2f} (Sentence Variance)")
+        print(f"Rasio Kosa Kata Unik (TTR) : {stilo_raw[6]*100:.2f}% kosakata unik")
+        print(f"Rasio Huruf Kapital        : {stilo_raw[21]*100:.3f}% dari total teks")
+        print(f"Kerapatan Kata Benda (Noun): {stilo_raw[23]*100:.2f}% dari total POS")
+        print(f"Kerapatan Kata Kerja (Verb): {stilo_raw[24]*100:.2f}% dari total POS")
+        print(f"Kerapatan Konjungsi (Conj) : {stilo_raw[27]*100:.2f}% dari total POS")
         print("="*50)
         
     except Exception as e:

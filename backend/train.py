@@ -5,11 +5,12 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+from scipy.sparse import hstack, csr_matrix  # Tambahan krusial untuk efisiensi memori
 
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
-from sklearn.preprocessing import MaxAbsScaler  # Solusi penskalaan aman untuk data jarang (sparsity)
+from sklearn.preprocessing import MaxAbsScaler
 from sklearn.metrics import accuracy_score, f1_score, classification_report, confusion_matrix
 
 # Memuat library POS Tagger dari nlp-id
@@ -18,7 +19,7 @@ try:
     postagger = PosTag()
     print("Library nlp-id POS Tagger berhasil dimuat.")
 except Exception as e:
-    print(f"Gagal memuat nlp-id. Pastikan sudah menginstal via pip: {e}")
+    print(f"Gagal memuat nlp-id: {e}")
     exit()
 
 # Import fungsi pembersihan bawaan sistem Anda
@@ -39,15 +40,14 @@ except Exception as e:
 print("\n[2] Mengeksekusi Preprocessing Teks (Pembersihan)...")
 df['clean_text'] = df['text'].apply(clean_text)
 
-
-# 3. EXTRAK 35 FITUR STILOMETRI INDONESIA (1-PASS OPTIMIZED)
+# 3. EXTRAK 35 FITUR STILOMETRI INDONESIA (SUPER OPTIMIZED - PANDAS BOTTLENECK REMOVED)
 def extract_stylometry_35(text):
     """
-    Ekstraksi 35 parameter gaya penulisan dan tata bahasa Bahasa Indonesia.
-    Menggunakan Aturan 1-Pass POS Tagging untuk efisiensi latensi.
+    Ekstraksi 35 parameter gaya penulisan. 
+    Return berupa LIST agar jauh lebih cepat saat diproses Pandas.
     """
     if not isinstance(text, str) or len(text.strip()) == 0:
-        return pd.Series([0.0] * 35)
+        return [0.0] * 35
 
     sentences = [s.strip() for s in text.split('.') if s.strip()]
     num_sentences = len(sentences) if len(sentences) > 0 else 1
@@ -96,7 +96,7 @@ def extract_stylometry_35(text):
     uppercase_ratio = sum(1 for c in text if c.isupper()) / num_chars
     digit_ratio = sum(1 for c in text if c.isdigit()) / num_chars
     
-    # --- KELOMPOK D: SYNTACTIC/POS-TAGGING (12 Fitur - 1-PASS) ---
+    # --- KELOMPOK D: SYNTACTIC/POS-TAGGING (12 Fitur) ---
     try:
         pos_tags = postagger.get_pos_tag(text)
     except Exception:
@@ -113,7 +113,7 @@ def extract_stylometry_35(text):
     adverbs = sum(1 for _, tag in pos_tags if tag == 'RB')
     nums = sum(1 for _, tag in pos_tags if tag == 'NUM')
     foreigns = sum(1 for _, tag in pos_tags if tag == 'FW')
-    interjs = sum(1 for _, tag in pos_tags if tag == 'INT')
+    interjections = sum(1 for _, tag in pos_tags if tag == 'INT')
     determiners = sum(1 for _, tag in pos_tags if tag == 'DET')
     particles = sum(1 for _, tag in pos_tags if tag == 'RP')
     
@@ -126,20 +126,20 @@ def extract_stylometry_35(text):
     adv_dens = adverbs / total_tags
     num_dens = nums / total_tags
     foreign_dens = foreigns / total_tags
-    interj_dens = interjs / total_tags
+    interj_dens = interjections / total_tags
     det_dens = determiners / total_tags
     part_dens = particles / total_tags
     
-    return pd.Series([
+    return [
         avg_sent_len, sent_len_var, avg_word_len, total_sentences, total_words, char_count,
         lex_div, guiraud_index, herdan_index, hapax_ratio, yules_i,
         punct_dens, comma_ratio, period_ratio, qmark_ratio, excl_ratio, colon_ratio, semicolon_ratio, hyphen_ratio, quote_ratio, bracket_ratio, uppercase_ratio, digit_ratio,
         noun_dens, verb_dens, adj_dens, pronoun_dens, conj_dens, prep_dens, adv_dens, num_dens, foreign_dens, interj_dens, det_dens, part_dens
-    ])
+    ]
 
 print("\n[3] Mengekstraksi 35 Dimensi Fitur Stilometri (Looping Teroptimasi dari Teks Mentah)...")
 tqdm.pandas(desc="Proses Ekstraksi")
-style_features = df['text'].progress_apply(extract_stylometry_35)  # Ekstraksi dari teks mentah asli
+style_features_list = df['text'].progress_apply(extract_stylometry_35).tolist() 
 
 style_cols = [
     'avg_sent_len', 'sent_len_var', 'avg_word_len', 'total_sentences', 'total_words', 'char_count',
@@ -147,10 +147,10 @@ style_cols = [
     'punct_dens', 'comma_ratio', 'period_ratio', 'qmark_ratio', 'excl_ratio', 'colon_ratio', 'semicolon_ratio', 'hyphen_ratio', 'quote_ratio', 'bracket_ratio', 'uppercase_ratio', 'digit_ratio',
     'noun_dens', 'verb_dens', 'adj_dens', 'pronoun_dens', 'conj_dens', 'prep_dens', 'adv_dens', 'num_dens', 'foreign_dens', 'interj_dens', 'det_dens', 'part_dens'
 ]
-style_features.columns = style_cols
 
-for col in style_cols:
-    df[col] = style_features[col]
+# Menggabungkan fitur ekstraksi ke DataFrame utama
+style_df = pd.DataFrame(style_features_list, columns=style_cols, index=df.index)
+df = pd.concat([df, style_df], axis=1)
 
 # 4. PEMBAGIAN DATA (TRAIN/TEST SPLIT - 80/20)
 print("\n[4] Melakukan Pembagian Data (Train/Test Split)...")
@@ -161,102 +161,36 @@ X_text_train, X_text_test, y_train, y_test = train_test_split(
 X_stilo_train_raw = df.loc[X_text_train.index, style_cols].values
 X_stilo_test_raw = df.loc[X_text_test.index, style_cols].values
 
-
-# 5. PENCARIAN PARAMETER OPTIMAL (GRID SEARCH MENCARI SWEET SPOT BALANCED DENGAN MAXABSSCALER)
-print("\n" + "="*80)
-print("  [5] MEMULAI AUTOMATED GRID SEARCH: EVALUASI KESENJANGAN DENGAN INTEGRASI BIGRAMS & MAXABSSCALER")
-print("="*80)
-
-# Parameter penalti L2 (C) dan ukuran kosakata TF-IDF
-c_parameters = [0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 10.0]
-vocab_sizes = [1000] # Resolusi tinggi 1.000 unigram
-
-best_score = -999.0  
-best_gap = 999.0
-best_c = 1.0
-best_vocab = 1000
-best_train_acc = 0.0
-best_test_acc = 0.0
-
-print(f"{'Kosakata':<10} | {'Nilai C':<8} | {'Train Acc':<12} | {'Test Acc':<12} | {'Gap Performa':<15} | {'Optimasi Score':<15} | {'Status'}")
-print("-"*105)
-
-for vocab in vocab_sizes:
-    # Menggunakan N-Gram Range (1, 2) untuk menguji kombinasi Bigrams
-    temp_tfidf = TfidfVectorizer(max_features=vocab, ngram_range=(1, 2), sublinear_tf=True)
-    X_tfidf_train = temp_tfidf.fit_transform(X_text_train).toarray()
-    X_tfidf_test = temp_tfidf.transform(X_text_test).toarray()
-    
-    # Satukan fitur leksikal dan stilometri mentah
-    X_hybrid_train_raw = np.hstack((X_tfidf_train, X_stilo_train_raw))
-    X_hybrid_test_raw = np.hstack((X_tfidf_test, X_stilo_test_raw))
-    
-    # Normalisasi hibrida menggunakan MaxAbsScaler untuk menjaga Sparsity TF-IDF
-    temp_scaler = MaxAbsScaler()
-    X_hybrid_train_scaled = temp_scaler.fit_transform(X_hybrid_train_raw)
-    X_hybrid_test_scaled = temp_scaler.transform(X_hybrid_test_raw)
-    
-    for c in c_parameters:
-        temp_model = LogisticRegression(C=c, max_iter=2000, random_state=42)
-        temp_model.fit(X_hybrid_train_scaled, y_train)
-        
-        acc_train = accuracy_score(y_train, temp_model.predict(X_hybrid_train_scaled))
-        acc_test = accuracy_score(y_test, temp_model.predict(X_hybrid_test_scaled))
-        
-        gap = abs(acc_train - acc_test)
-        
-        # Formula Multi-Objective Score: Keseimbangan antara Akurasi Tinggi & Gap Tipis
-        score = acc_test - (3 * gap)
-        
-        if gap > 0.05:
-            status = "Overfitting"
-        elif acc_test < 0.78:
-            status = "Underfitting"
-        else:
-            status = "Kandidat"
-            if score > best_score:
-                best_score = score
-                best_gap = gap
-                best_c = c
-                best_vocab = vocab
-                best_train_acc = acc_train
-                best_test_acc = acc_test
-
-        print(f"{vocab:<10} | {c:<8.2f} | {acc_train:<12.4f} | {acc_test:<12.4f} | {gap:<15.4f} | {score:<15.4f} | {status}")
-
-print("="*105)
-print(f"KESIMPULAN OPTIMASI TERSELEKSI (SWEET SPOT DENGAN MAXABSSCALER):")
-print(f" -> Ukuran Kosakata Terbaik : {best_vocab} unigram & bigram")
-print(f" -> Nilai Penalti C Terbaik : {best_c}")
-print(f" -> Akurasi Latih (Train)   : {best_train_acc:.4f}")
-print(f" -> Akurasi Uji (Test)       : {best_test_acc:.4f}")
-print(f" -> Kesenjangan Akhir (Gap) : {best_gap:.4f}")
-print("="*105 + "\n")
-
+# --- STEP 5 DIHAPUS (Bypass Grid Search yang menyebabkan Data Leakage) ---
+# Kita langsung pakai konfigurasi parameter terbaik yang sudah divalidasi sebelumnya.
 
 # 6. PENYUSUNAN MODEL UTAMA BERDASARKAN HASIL OPTIMASI TEROPTIMAL
-print("[6] Membangun Model Akhir Menggunakan Parameter Teroptimasi...")
+print("\n[6] Membangun Model Akhir Menggunakan Parameter Teroptimasi (Sparse Matrix)...")
 
-# FORCE PARAMETERS: Kunci ke parameter terbaik hasil pembuktian eksternal (Aman & Stabil)
-best_vocab = 500   # Menggunakan 500 unigram/bigram untuk mencegah memorization
-best_c = 0.01      # Menggunakan C=0.01 (Regularisasi sangat kuat untuk domain generalization)
+best_vocab = 500   
+best_c = 0.01      
 
-print(f" -> Mengunci Parameter Final: Kosakata = {best_vocab}, Nilai C = {best_c}")
+# Vectorizer Final dengan Character N-Gram Range (3, 5) dan Sublinear TF
+tfidf_final = TfidfVectorizer(max_features=best_vocab, analyzer='char', ngram_range=(3, 5), sublinear_tf=True)
 
-# Vectorizer Final dengan N-Gram Range (1, 2)
-tfidf_final = TfidfVectorizer(max_features=best_vocab, ngram_range=(1, 2), sublinear_tf=True)
-X_tfidf_train_final = tfidf_final.fit_transform(X_text_train).toarray()
-X_tfidf_test_final = tfidf_final.transform(X_text_test).toarray()
+# FIT-TRANSFORM TANPA .toarray() AGAR TETAP SPARSE DAN RINGAN DI RAM!
+X_tfidf_train_final = tfidf_final.fit_transform(X_text_train)
+X_tfidf_test_final = tfidf_final.transform(X_text_test)
 
-X_train_h_raw = np.hstack((X_tfidf_train_final, X_stilo_train_raw))
-X_test_h_raw = np.hstack((X_tfidf_test_final, X_stilo_test_raw))
+# Konversi stilometri raw ke sparse matrix untuk digabung
+X_stilo_train_sparse = csr_matrix(X_stilo_train_raw)
+X_stilo_test_sparse = csr_matrix(X_stilo_test_raw)
 
-# Scaler Final (MaxAbsScaler)
+# Gabungkan matriks TF-IDF dan Stilometri menggunakan scipy.sparse.hstack
+X_train_h_raw = hstack([X_tfidf_train_final, X_stilo_train_sparse]).tocsr()
+X_test_h_raw = hstack([X_tfidf_test_final, X_stilo_test_sparse]).tocsr()
+
+# Scaler Final (MaxAbsScaler) - Sangat cocok dan aman untuk Sparse Matrix
 scaler_final = MaxAbsScaler()
 X_train_h_scaled = scaler_final.fit_transform(X_train_h_raw)
 X_test_h_scaled = scaler_final.transform(X_test_h_raw)
 
-# Pelatihan Model Utama (Batas iterasi 10000 menjamin bebas error konvergensi)
+# Pelatihan Model Utama
 model_final = LogisticRegression(C=best_c, max_iter=10000, random_state=42)
 model_final.fit(X_train_h_scaled, y_train)
 
@@ -264,22 +198,22 @@ model_final.fit(X_train_h_scaled, y_train)
 # 7. EVALUASI DAN METRIKS CONFUSION MATRIX INTERNAL (ABLATION STUDY)
 print("\n[7] Mengevaluasi Performa Klasifikasi Akhir & Ablation Study...")
 
-# Model 1: TF-IDF Saja (Dengan MaxAbsScaler)
+# Model 1: TF-IDF Saja 
 scaler_t = MaxAbsScaler()
 X_train_t_scaled = scaler_t.fit_transform(X_tfidf_train_final)
 X_test_t_scaled = scaler_t.transform(X_tfidf_test_final)
 
-model_tfidf_only = LogisticRegression(C=best_c, max_iter=2000, random_state=42)
+model_tfidf_only = LogisticRegression(C=best_c, max_iter=10000, random_state=42)
 model_tfidf_only.fit(X_train_t_scaled, y_train)
 acc_tfidf_only = accuracy_score(y_test, model_tfidf_only.predict(X_test_t_scaled))
 f1_tfidf_only = f1_score(y_test, model_tfidf_only.predict(X_test_t_scaled), average="weighted")
 
-# Model 2: Stilometri Saja (Dengan MaxAbsScaler)
+# Model 2: Stilometri Saja 
 scaler_s = MaxAbsScaler()
 X_train_s_scaled = scaler_s.fit_transform(X_stilo_train_raw)
 X_test_s_scaled = scaler_s.transform(X_stilo_test_raw)
 
-model_stilo_only = LogisticRegression(C=best_c, max_iter=2000, random_state=42)
+model_stilo_only = LogisticRegression(C=best_c, max_iter=10000, random_state=42)
 model_stilo_only.fit(X_train_s_scaled, y_train)
 acc_stilo_only = accuracy_score(y_test, model_stilo_only.predict(X_test_s_scaled))
 f1_stilo_only = f1_score(y_test, model_stilo_only.predict(X_test_s_scaled), average="weighted")
@@ -290,20 +224,20 @@ acc_hybrid_final = accuracy_score(y_test, y_pred_h)
 f1_hybrid_final = f1_score(y_test, y_pred_h, average="weighted")
 
 print("\n" + "="*80)
-print("     HASIL PERBANDINGAN KOMPARATIF METODE (ABLATION STUDY FINAL)")
+print("    HASIL PERBANDINGAN KOMPARATIF METODE (ABLATION STUDY FINAL)")
 print("="*80)
 print(f"{'Skenario Pengujian (Ablation)':<35} | {'Accuracy':<10} | {'F1-Score':<10}")
 print("-"*80)
-print(f"{'1. TF-IDF Saja (unigrams & bigrams)':<35} | {acc_tfidf_only:<10.4f} | {f1_tfidf_only:<10.4f}")
+print(f"{'1. TF-IDF Saja (Karakter N-Gram)':<35} | {acc_tfidf_only:<10.4f} | {f1_tfidf_only:<10.4f}")
 print(f"{'2. Stilometri Saja (35 Fitur Raw)':<35} | {acc_stilo_only:<10.4f} | {f1_stilo_only:<10.4f}")
-print(f"{'3. Hibrida Terintegrasi (1.035 Fitur Raw)':<35} | {acc_hybrid_final:<10.4f} | {f1_hybrid_final:<10.4f}")
+print(f"{'3. Hibrida Terintegrasi (535 Fitur)':<35} | {acc_hybrid_final:<10.4f} | {f1_hybrid_final:<10.4f}")
 print("="*80 + "\n")
 
 conf_matrix = confusion_matrix(y_test, y_pred_h)
 tn, fp, fn, tp = conf_matrix.ravel()
 
 print("\n" + "="*50)
-print("     HASIL METRIKS CONFUSION MATRIX AKHIR")
+print("    HASIL METRIKS CONFUSION MATRIX AKHIR")
 print("="*50)
 print(f"True Negative (TN - Manusia Terbaca Manusia) : {tn} dokumen")
 print(f"False Positive (FP - Manusia Salah Tuduh AI)  : {fp} dokumen")
@@ -318,7 +252,7 @@ print("Classification Report Final:\n", classification_report(y_test, y_pred_h))
 print("[8] Menyimpan Aset Digital Model Terlatih...")
 joblib.dump(model_final, 'models/logistic_model_testing_test.pkl')
 joblib.dump(tfidf_final, 'models/tfidf_vectorizer_testing_test.pkl')
-joblib.dump(scaler_final, 'models/scaler_style_testing_test.pkl')  # <-- Scaler tersimpan dengan aman
+joblib.dump(scaler_final, 'models/scaler_style_testing_test.pkl')
 print(" -> models/logistic_model_testing_test.pkl [BERHASIL DISIMPAN]")
 print(" -> models/tfidf_vectorizer_testing_test.pkl [BERHASIL DISIMPAN]")
 print(" -> models/scaler_style_testing_test.pkl [BERHASIL DISIMPAN]")
@@ -345,6 +279,7 @@ print("-"*80)
 for label_kategori, min_w, max_w in bins:
     bin_indices = np.where((word_counts >= min_w) & (word_counts <= max_w))[0]
     if len(bin_indices) > 0:
+        # Slicing aman untuk CSR Sparse Matrix
         X_test_bin = X_test_h_scaled[bin_indices]
         y_test_bin = y_test_reset.iloc[bin_indices]
         pred_bin = model_final.predict(X_test_bin)
@@ -376,5 +311,5 @@ sns.heatmap(
 )
 plt.xlabel('Predicted Label')
 plt.ylabel('True Label')
-plt.title('Confusion Matrix Teroptimasi (1.035 Dimensi Fitur dengan MaxAbsScaler)')
+plt.title('Confusion Matrix Teroptimasi (535 Dimensi Fitur dengan MaxAbsScaler)')
 plt.show()

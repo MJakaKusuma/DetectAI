@@ -6,6 +6,7 @@ from huggingface_hub import HfApi
 import numpy as np
 import pandas as pd
 import joblib
+from scipy.sparse import hstack, csr_matrix
 
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
 from sqlalchemy.orm import Session
@@ -118,7 +119,6 @@ async def upload_dataset(
     filename_only, file_extension = os.path.splitext(file.filename)
     unique_filename = f"{filename_only}_{timestamp}{file_extension}"
     
-    # Membuat folder penyimpanan jika belum ada
     os.makedirs("uploads", exist_ok=True)
     file_path = f"uploads/{unique_filename}"
     
@@ -164,7 +164,6 @@ async def retrain_model(
         if 'text' not in df_new.columns or 'label' not in df_new.columns:
             raise HTTPException(status_code=400, detail="Dataset harus memiliki kolom 'text' dan 'label'.")
 
-        # Menggabungkan dengan dataset dasar jika ada untuk mempertahankan history pembelajaran
         if os.path.exists("final_detection_dataset.csv"):
             df_base = pd.read_csv("final_detection_dataset.csv")
             df_combined = pd.concat([df_base, df_new], ignore_index=True)
@@ -174,7 +173,7 @@ async def retrain_model(
         df_combined = df_combined.drop_duplicates(subset=['text']).reset_index(drop=True)
         df_combined['clean_text'] = df_combined['text'].apply(clean_text)
 
-        # 1. Ekstraksi 35 Dimensi Fitur Stilometri (Looping Teroptimasi)
+        # 1. Ekstraksi 35 Dimensi Fitur Stilometri (Format List List)
         style_features_list = []
         print(f"[Retrain] Mengekstrak 35 fitur gaya bahasa dari {len(df_combined)} baris teks...")
         
@@ -183,21 +182,22 @@ async def retrain_model(
             style_features_list.append(feat)
 
         style_features_np = np.array(style_features_list)
+        style_features_sparse = csr_matrix(style_features_np) # Konversi ke CSR Sparse Matrix
 
-        # 2. Fitur Leksikal TF-IDF (Membatasi ke 500 n-gram unigram/bigram untuk performa stabil)
-        new_tfidf_vectorizer = TfidfVectorizer(max_features=500, ngram_range=(1, 2), sublinear_tf=True)
-        X_tfidf_only = new_tfidf_vectorizer.fit_transform(df_combined['clean_text']).toarray()
+        # 2. Fitur Leksikal TF-IDF (Sesuai Konfigurasi train.py: Character-level N-gram 3-5, max_features=500)
+        new_tfidf_vectorizer = TfidfVectorizer(max_features=500, analyzer='char', ngram_range=(3, 5), sublinear_tf=True)
+        X_tfidf_only = new_tfidf_vectorizer.fit_transform(df_combined['clean_text']) # Menghasilkan sparse matrix secara native
 
-        # Gabungkan raw leksikal dan stilometri secara horizontal
-        X_hybrid_raw = np.hstack((X_tfidf_only, style_features_np))
+        # Gabungkan raw leksikal dan stilometri hibrida menggunakan hstack sparse
+        X_hybrid_raw = hstack([X_tfidf_only, style_features_sparse]).tocsr()
         y_new = df_combined['label'].apply(lambda x: 1 if str(x).lower() in ['1', 'ai'] else 0)
 
-        # 3. Train/Test Split (80/20) sebelum penskalaan untuk menjaga data leakage
+        # 3. Train/Test Split (80/20) sebelum penskalaan untuk menghindari leakage
         X_train_raw, X_test_raw, y_train, y_test = train_test_split(
             X_hybrid_raw, y_new, test_size=0.2, random_state=42
         )
 
-        # 4. Normalisasi hibrida menggunakan MaxAbsScaler untuk menjaga sparsity TF-IDF
+        # 4. Normalisasi hibrida menggunakan MaxAbsScaler (Mendukung CSR Sparse secara native)
         new_scaler = MaxAbsScaler()
         X_train_scaled = new_scaler.fit_transform(X_train_raw)
         X_test_scaled = new_scaler.transform(X_test_raw)
@@ -213,7 +213,6 @@ async def retrain_model(
 
         version_code = datetime.datetime.utcnow().strftime("%Y%m%d%H%M")
 
-        # Membuat folder penyimpanan models lokal jika belum ada
         os.makedirs("models", exist_ok=True)
 
         active_model_path = 'models/logistic_model.pkl'
@@ -239,7 +238,7 @@ async def retrain_model(
         ml_registry.scaler = new_scaler
         update_global_ai_keywords()
 
-        # Sinkronisasi ke Hugging Face Space (jika token dideklarasikan)
+        # Unggah ke Hugging Face Space (jika token dideklarasikan)
         hf_token = os.getenv("HF_TOKEN")
         repo_id = "shouwiku/detectai-backend" 
 
@@ -347,11 +346,9 @@ async def activate_model_version(
         shutil.copy(model_path, 'models/logistic_model.pkl')
         shutil.copy(tfidf_path, 'models/tfidf_vectorizer.pkl')
         
-        # Penanganan fallback aman untuk model lama yang belum memiliki scaler
         if os.path.exists(scaler_path):
             shutil.copy(scaler_path, 'models/scaler_style.pkl')
         
-        # Pemuatan ulang model aktif ke memori server
         get_models()
         
         db.query(ModelVersion).update({ModelVersion.is_active: False})
