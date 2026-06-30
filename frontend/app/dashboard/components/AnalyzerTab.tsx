@@ -45,12 +45,6 @@ interface ExtendedPredictionResponse extends PredictionResponse {
     noun_dens: string;
     verb_dens: string;
     adj_dens: string;
-    pronoun_dens: string;
-    conj_dens: string;
-    prep_dens: string;
-    adv_dens: string;
-    foreign_dens: string;
-    part_dens: string;
   };
 }
 
@@ -199,40 +193,12 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
     }
   };
 
-  const getSentenceSuspicion = (sentence: string, aiKeywords: string[]) => {
-    const trimmed = sentence.trim();
-    if (!trimmed) return { score: 0, reason: "" };
-
-    const words = trimmed.split(/\s+/);
-    const sWordCount = words.length;
-    
-    const foundKeywords = aiKeywords.filter(word => trimmed.toLowerCase().includes(word));
-    let lexicalScore = 0;
-    if (foundKeywords.length === 1) {
-      lexicalScore = 35;
-    } else if (foundKeywords.length > 1) {
-      lexicalScore = 50;
-    }
-
-    const lengthScore = Math.max(0, 50 - Math.abs(sWordCount - 13) * 5);
-    const totalScore = lexicalScore + lengthScore;
-    
-    let reason = `Panjang kalimat: ${sWordCount} kata.`;
-    if (foundKeywords.length > 0) {
-      reason += ` Mengandung kata kunci AI: [${foundKeywords.join(", ")}].`;
-    }
-
-    return {
-      score: Math.min(100, totalScore),
-      reason
-    };
-  };
-
   // --- DUAL-MODE HIGHLIGHTER ---
+  // === GANTI BLOK FUNGSI RENDER HIGHLIGHT LAMA ANDA SEPENUHNYA DENGAN INI: ===
   const renderHighlightedText = () => {
     if (!text) return <span className="text-slate-400 italic">Naskah kosong...</span>;
 
-    // MODE UTAMA: Paragraph-Level Chunks dari Model ML Backend Baru
+    // Mode Utama: Menampilkan Sorotan Paragraf asinkron dari Machine Learning Backend
     if (result && result.chunks_highlights && result.chunks_highlights.length > 0) {
       return result.chunks_highlights.map((chunk: ChunkHighlight, idx: number) => {
         const isAI = chunk.prediction === "AI";
@@ -264,50 +230,7 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
       });
     }
 
-    // MODE CADANGAN: Sentence-Level menggunakan Kata Kunci TF-IDF
-    if (result) {
-      const sentences = text.split(/(?<=[.!?])\s+/);
-      const activeKeywords = detectedAiWords.map(kw => kw.word);
-
-      return (
-        <p className="leading-relaxed text-sm text-slate-700">
-          {sentences.map((sentence, idx) => {
-            const trimmedSent = sentence.trim();
-            if (!trimmedSent) return null;
-
-            const { score, reason } = getSentenceSuspicion(trimmedSent, activeKeywords);
-            
-            let highlightClass = "text-slate-700";
-            
-            if (enableHighlight && score >= 35) {
-              if (score >= 85) {
-                highlightClass = "bg-rose-500/20 text-rose-950 font-bold border-b-2 border-rose-400/80";
-              } else if (score >= 65) {
-                highlightClass = "bg-rose-500/12 text-rose-900 border-b border-rose-300/50";
-              } else if (score >= 45) {
-                highlightClass = "bg-rose-500/6 text-slate-850 border-b border-rose-200/40";
-              } else {
-                highlightClass = "bg-rose-500/3 text-slate-700";
-              }
-            }
-
-            return (
-              <span 
-                key={idx} 
-                className={`transition-all duration-300 mr-1.5 leading-relaxed rounded px-0.5 ${highlightClass} ${
-                  enableHighlight && score >= 35 ? "cursor-help" : ""
-                }`}
-                title={enableHighlight && score >= 35 ? `Tingkat Kecurigaan: ${score.toFixed(0)}% (${reason})` : undefined}
-              >
-                {sentence}{" "}
-              </span>
-            );
-          })}
-        </p>
-      );
-    }
-
-    // SEBELUM SCAN
+    // Skenario Cadangan sebelum pemindaian dilakukan (Teks Polos)
     return <p className="leading-relaxed text-sm text-slate-400 whitespace-pre-wrap select-text">{text}</p>;
   };
 
@@ -719,30 +642,6 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
                         <div>
                           <span className="text-slate-400 block">Adjektiva (Sifat)</span>
                           <span className="font-bold text-slate-700">{result.stylometry.adj_dens}</span>
-                        </div>
-                        <div>
-                          <span className="text-slate-400 block">Pronoun (Ganti)</span>
-                          <span className="font-bold text-slate-700">{result.stylometry.pronoun_dens}</span>
-                        </div>
-                        <div>
-                          <span className="text-slate-400 block">Konjungsi</span>
-                          <span className="font-bold text-slate-700">{result.stylometry.conj_dens}</span>
-                        </div>
-                        <div>
-                          <span className="text-slate-400 block">Preposisi</span>
-                          <span className="font-bold text-slate-700">{result.stylometry.prep_dens}</span>
-                        </div>
-                        <div>
-                          <span className="text-slate-400 block">Adverba</span>
-                          <span className="font-bold text-slate-700">{result.stylometry.adv_dens}</span>
-                        </div>
-                        <div>
-                          <span className="text-slate-400 block">Asing (FW)</span>
-                          <span className="font-bold text-slate-700">{result.stylometry.foreign_dens}</span>
-                        </div>
-                        <div>
-                          <span className="text-slate-400 block">Partikel (RP)</span>
-                          <span className="font-bold text-slate-700">{result.stylometry.part_dens}</span>
                         </div>
                       </div>
                     </div>
