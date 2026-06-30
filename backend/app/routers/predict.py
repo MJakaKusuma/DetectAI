@@ -88,8 +88,8 @@ async def predict(
                 tfidf_feat = ml_registry.tfidf.transform([cleaned])
                 tfidf_shapes.append(tfidf_feat.shape)
                 
-                # Ekstraksi stilometri 35 dimensi
-                style_feat_list = extract_stylometry(cleaned)
+                # Ekstraksi stilometri 35 dimensi (Mengekstrak dari naskah asli mentah 'paragraph')
+                style_feat_list = extract_stylometry(paragraph)
                 style_feat_sparse = csr_matrix([style_feat_list])
                 stylo_shapes.append(style_feat_sparse.shape)
 
@@ -118,31 +118,29 @@ async def predict(
             # Tentukan hasil klasifikasi parsial untuk paragraf ini
             chunk_label = "AI" if prob[1] > 0.5 else "Human"
             chunk_conf = float(prob[1] if prob[1] > 0.5 else prob[0])
+            
+            # --- PERBAIKAN 1: KALIBRASI PROBABILITAS PARGPARAF (GAMMA = 0.6) ---
+            chunk_conf_scaled = 0.5 + 0.5 * np.power((chunk_conf - 0.5) / 0.5, 0.6)
 
+            # --- SINKRONISASI KUNCI NEXT.JS ---
             chunks_result.append({
-                "paragraph_index": idx,
+                "chunk_index": idx,           # Diubah dari paragraph_index agar bebas error Next.js
                 "text": paragraph,
                 "prediction": chunk_label,
-                "confidence": f"{chunk_conf * 100:.2f}%",
+                "confidence": f"{chunk_conf_scaled * 100:.2f}%", # Menggunakan keyakinan terkalibrasi
                 "probability_ai": float(prob[1])
             })
 
         # Agregasi Hasil Akhir (Global Prediction) berdasarkan rata-rata probabilitas AI
         avg_ai_prob = total_ai_prob / valid_chunks_count if valid_chunks_count > 0 else 0.5
         global_prediction = "AI" if avg_ai_prob > 0.5 else "Human"
-        global_confidence = avg_ai_prob if avg_ai_prob > 0.5 else (1.0 - avg_ai_prob)
+        global_confidence_raw = avg_ai_prob if avg_ai_prob > 0.5 else (1.0 - avg_ai_prob)
+        
+        # --- PERBAIKAN 2: KALIBRASI PROBABILITAS GLOBAL (GAMMA = 0.6) ---
+        global_confidence_scaled = 0.5 + 0.5 * np.power((global_confidence_raw - 0.5) / 0.5, 0.6)
 
-        # Ekstraksi statistik stilometri global (seluruh dokumen) untuk kompatibilitas frontend
-        global_cleaned = clean_text(text_request.text)
-        global_style_list = extract_stylometry(global_cleaned)
-
-        raw_avg_sent = float(global_style_list[0])       # index 0: avg_sent_len
-        raw_sent_len_var = float(global_style_list[1])   # index 1: sent_len_var
-        raw_lex_div = float(global_style_list[6])        # index 6: lex_div
-        raw_punct_dens = float(global_style_list[11])    # index 11: punct_dens
-        raw_noun_dens = float(global_style_list[23])     # index 23: noun_dens
-        raw_verb_dens = float(global_style_list[24])     # index 24: verb_dens
-        raw_adj_dens = float(global_style_list[25])      # index 25: adj_dens
+        # --- PERBAIKAN 3: MEMETAKAN SELURUH 35 DIMENSI FITUR STILOMETRI DARI TEKS ASLI ---
+        global_style_list = extract_stylometry(text_request.text)
 
     except Exception as e:
         print("ERROR PREDICT CHUNKING:", str(e))
@@ -168,11 +166,11 @@ async def predict(
         active_model = db.query(ModelVersion).filter(ModelVersion.is_active == True).first()
         model_v_id = active_model.id if active_model else None
 
-        # Menyimpan Log Hasil Prediksi Global Ke Database SQL
+        # Menyimpan Log Hasil Prediksi Global Ke Database SQL (Gunakan nilai float terkalibrasi)
         new_prediction = Prediction(
             input_text=text_request.text,
             prediction_result=global_prediction,
-            confidence=global_confidence,
+            confidence=global_confidence_scaled,
             model_version_id=model_v_id,
             user_id=logged_user_id 
         )
@@ -181,29 +179,54 @@ async def predict(
         db.commit()
         db.refresh(new_prediction)
         
+        # --- PERBAIKAN 4: INTEGRASI PAYLOAD STILOMETRI LENGKAP KE NEXT.JS ---
         return {
             "status": "success",
             "prediction": global_prediction,
-            "confidence": f"{global_confidence * 100:.2f}%",
+            "confidence": f"{global_confidence_scaled * 100:.2f}%",
             "prediction_id": new_prediction.id,
             "stylometry": {
-                "avg_sent_len": f"{raw_avg_sent:.1f} kata/kalimat",
-                "lex_div": f"{raw_lex_div * 100:.1f}% kosakata unik",
-                "punct_dens": f"{raw_punct_dens * 100:.1f}% kerapatan tanda baca",
-                "sent_len_var": f"{raw_sent_len_var:.1f} standar deviasi",
-                "noun_dens": f"{raw_noun_dens * 100:.1f}% kata benda",
-                "verb_dens": f"{raw_verb_dens * 100:.1f}% kata kerja",
-                "adj_dens": f"{raw_adj_dens * 100:.1f}% kata sifat"
+                # Kategori A: Panjang & Ritme Kalimat
+                "avg_sent_len": f"{global_style_list[0]:.1f} kata/kalimat",
+                "sent_len_var": f"{global_style_list[1]:.1f} standar deviasi",
+                "avg_word_len": f"{global_style_list[2]:.1f} karakter/kata",
+                "total_sentences": f"{int(global_style_list[3])} kalimat",
+                "total_words": f"{int(global_style_list[4])} kata",
+                "char_count": f"{int(global_style_list[5])} karakter",
+                
+                # Kategori B: Kekayaan Kosakata
+                "lex_div": f"{global_style_list[6] * 100:.1f}% kosakata unik",
+                "guiraud_index": f"{global_style_list[7]:.2f}",
+                "herdan_index": f"{global_style_list[8]:.2f}",
+                "hapax_ratio": f"{global_style_list[9] * 100:.1f}%",
+                "yules_i": f"{global_style_list[10]:.2f}",
+                
+                # Kategori C: Tanda Baca & Karakter
+                "punct_dens": f"{global_style_list[11] * 100:.1f}% kerapatan tanda baca",
+                "comma_ratio": f"{global_style_list[12] * 100:.1f}%",
+                "period_ratio": f"{global_style_list[13] * 100:.1f}%",
+                "qmark_ratio": f"{global_style_list[14] * 100:.1f}%",
+                "excl_ratio": f"{global_style_list[15] * 100:.1f}%",
+                "colon_ratio": f"{global_style_list[16] * 100:.1f}%",
+                "semicolon_ratio": f"{global_style_list[17] * 100:.1f}%",
+                "hyphen_ratio": f"{global_style_list[18] * 100:.1f}%",
+                "quote_ratio": f"{global_style_list[19] * 100:.1f}%",
+                "bracket_ratio": f"{global_style_list[20] * 100:.1f}%",
+                "uppercase_ratio": f"{global_style_list[21] * 100:.2f}%",
+                
+                # Kategori D: Tata Bahasa (POS Density)
+                "noun_dens": f"{global_style_list[23] * 100:.1f}%",
+                "verb_dens": f"{global_style_list[24] * 100:.1f}%",
+                "adj_dens": f"{global_style_list[25] * 100:.1f}%"
             },
             "ai_keywords": ml_registry.ai_keywords,
-            "chunks": chunks_result  # <-- Next.js Anda dapat memetakan sorotan merah di UI menggunakan data ini!
+            "chunks_highlights": chunks_result  # <-- SINKRON: Menggunakan key 'chunks_highlights' untuk Next.js Anda!
         }
     except Exception as e:
         print(f"Error Database Log: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
     finally:
-        # Pengecekan aman untuk logging ke konsol server tanpa memicu NameError
         print(f"Selesai memproses dokumen. Jumlah paragraf: {len(raw_paragraphs)}")
         if tfidf_shapes:
             print("Contoh TFIDF shape (Sparse):", tfidf_shapes[0])
