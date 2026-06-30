@@ -7,20 +7,35 @@ import { useToast } from "../../components/toast";
 import { PredictionResponse, AiKeyword } from "../types";
 import { RefreshCw, BarChart2, Edit3, Search, Cpu, User, AlertTriangle, Target } from "react-feather";
 
+// --- PERBAIKAN 1: DEFINISIKAN TIPE DATA LOKAL UNTUK TYPESCRIPT ---
+interface ChunkHighlight {
+  chunk_index: number;
+  text: string;
+  prediction: string;
+  confidence: string;
+  word_count: number;
+}
+
+// Melakukan ekstensi lokal pada tipe PredictionResponse agar tidak perlu mengubah types.ts
+interface ExtendedPredictionResponse extends PredictionResponse {
+  chunks_highlights?: ChunkHighlight[];
+}
+
 interface AnalyzerTabProps {
   username: string | null;
 }
 
 export default function AnalyzerTab({ username }: AnalyzerTabProps) {
   const [text, setText] = useState("");
-  const [result, setResult] = useState<PredictionResponse | null>(null);
+  // Menggunakan tipe ExtendedPredictionResponse hasil perbaikan
+  const [result, setResult] = useState<ExtendedPredictionResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [resultTab, setResultTab] = useState<"overview" | "stylometry" | "tfidf">("overview");
   const [showFeedbackForm, setShowFeedbackForm] = useState(false);
   const [correctLabel, setCorrectLabel] = useState("Human");
   const [feedbackComment, setFeedbackComment] = useState("");
   const [feedbackLoading, setFeedbackLoading] = useState(false);
-  const [showDetails, setShowDetails] = useState(false);
+  // PERBAIKAN 2: Menghapus state showDetails karena tidak digunakan (ESLint Warning)
   const [enableHighlight, setEnableHighlight] = useState(true);
   const [detectedAiWords, setDetectedAiWords] = useState<AiKeyword[]>([]);
 
@@ -38,17 +53,16 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
     setLoading(true);
     setResult(null);
     setShowFeedbackForm(false);
-    setShowDetails(false);
     setResultTab("overview");
     setDetectedAiWords([]);
 
     const token = localStorage.getItem("token");
 
     try {
-      const data = await apiRequest<PredictionResponse>("/predict", "POST", { text }, token);
+      const data = await apiRequest<ExtendedPredictionResponse>("/predict", "POST", { text }, token);
       setResult(data);
       
-      const aiKeywords = data.ai_keywords;
+      const aiKeywords = data.ai_keywords || [];
       const foundWords = aiKeywords.filter(kw => text.toLowerCase().includes(kw.word));
       setDetectedAiWords(foundWords);
 
@@ -96,11 +110,10 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
   const currentAvgSentLen = result ? getStyleNumber(result.stylometry.avg_sent_len) : 0;
   const currentLexDiv = result ? getStyleNumber(result.stylometry.lex_div) : 0;
   const currentPunctDens = result ? getStyleNumber(result.stylometry.punct_dens) : 0;
-  
   const currentSentLenVar = result ? getStyleNumber(result.stylometry.sent_len_var) : 0;
-  const currentNounDens = result ? getStyleNumber(result.stylometry.noun_dens) : 0;
-  const currentVerbDens = result ? getStyleNumber(result.stylometry.verb_dens) : 0;
-  const currentAdjDens = result ? getStyleNumber(result.stylometry.adj_dens) : 0;
+  
+  // PERBAIKAN 3: Menghapus variabel currentNounDens, currentVerbDens, dan currentAdjDens 
+  // karena tidak digunakan (ESLint Warning)
 
   const sentLenDiag = currentAvgSentLen >= 18 
     ? "Gaya Manusia (Dinamis): Kalimat Anda panjang dan mengalir alami." 
@@ -118,9 +131,38 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
     ? "Gaya Manusia (Burstiness Tinggi): Variasi panjang antar kalimat sangat dinamis dan alami."
     : "Gaya AI (Monoton): Selisih panjang antar kalimat sangat kaku dan seragam.";
 
+  const overallConfFloat = result ? parseFloat(result.confidence) : 0;
+  const isYellowZone = result ? overallConfFloat < 75 : false; 
+
+  let confidenceColorClass = "text-slate-700";
+  let barColorClass = "bg-indigo-500";
+  let badgeColorClass = "bg-indigo-50 text-indigo-700 border-indigo-100";
+  
+  if (result) {
+    if (isYellowZone) {
+      confidenceColorClass = "text-amber-600";
+      barColorClass = "bg-amber-500";
+      badgeColorClass = "bg-amber-50 text-amber-700 border border-amber-200";
+    } else {
+      if (result.prediction === "AI") {
+        confidenceColorClass = "text-rose-600";
+        barColorClass = "bg-rose-500";
+        badgeColorClass = "bg-rose-50 text-rose-700 border border-rose-100";
+      } else {
+        confidenceColorClass = "text-emerald-600";
+        barColorClass = "bg-emerald-500";
+        badgeColorClass = "bg-emerald-50 text-emerald-700 border border-emerald-100";
+      }
+    }
+  }
+
   const getDynamicExplanation = () => {
     if (!result) return "";
     
+    if (isYellowZone) {
+      return `Sistem mendeteksi dokumen ini berada di Zona Keraguan (tingkat keyakinan ${result.confidence}). Gaya penulisan naskah ini memiliki kedekatan statistik yang sangat tinggi antara karakteristik formal manusia dan templat mesin. Sesuai prosedur tata kelola akademik, naskah ini DIWAJIBKAN untuk diperiksa secara manual oleh dosen penilai.`;
+    }
+
     const isAI = result.prediction === "AI";
     const isSentLenHuman = currentAvgSentLen >= 18;
     const isLexDivHuman = currentLexDiv >= 75;
@@ -143,80 +185,47 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
     }
   };
 
-  const getSentenceSuspicion = (sentence: string, aiKeywords: string[]) => {
-    const trimmed = sentence.trim();
-    if (!trimmed) return { score: 0, reason: "" };
-
-    const words = trimmed.split(/\s+/);
-    const wordCount = words.length;
-    
-    const foundKeywords = aiKeywords.filter(word => trimmed.toLowerCase().includes(word));
-    let lexicalScore = 0;
-    if (foundKeywords.length === 1) {
-      lexicalScore = 35;
-    } else if (foundKeywords.length > 1) {
-      lexicalScore = 50;
-    }
-
-    const lengthScore = Math.max(0, 50 - Math.abs(wordCount - 13) * 5);
-    const totalScore = lexicalScore + lengthScore;
-    
-    let reason = `Panjang kalimat: ${wordCount} kata.`;
-    if (foundKeywords.length > 0) {
-      reason += ` Mengandung kata kunci AI: [${foundKeywords.join(", ")}].`;
-    }
-
-    return {
-      score: Math.min(100, totalScore),
-      reason
-    };
-  };
-
+  // --- PERBAIKAN 4: EKSPLISITKAN TIPE DATA CHUNK & IDX UNTUK TYPESCRIPT ---
   const renderHighlightedText = () => {
-    if (!text) return null;
-    
-    const sentences = text.split(/(?<=[.!?])\s+/);
-    const activeKeywords = result ? result.ai_keywords.map(kw => kw.word) : [];
+    if (!result || !result.chunks_highlights) {
+      return <span className="text-slate-700">{text}</span>;
+    }
 
-    return sentences.map((sentence, idx) => {
-      const trimmedSent = sentence.trim();
-      if (!trimmedSent) return null;
-
-      const { score, reason } = getSentenceSuspicion(trimmedSent, activeKeywords);
+    return result.chunks_highlights.map((chunk: ChunkHighlight, idx: number) => {
+      const isAI = chunk.prediction === "AI";
+      const confFloat = parseFloat(chunk.confidence);
       
       let highlightClass = "text-slate-700";
       
-      if (enableHighlight && score >= 35) {
-        if (score >= 85) {
-          highlightClass = "bg-rose-500/50 text-rose-950 font-bold border-b-2 border-rose-400/80";
-        } else if (score >= 65) {
-          highlightClass = "bg-rose-500/30 text-rose-900 border-b border-rose-300/60";
-        } else if (score >= 45) {
-          highlightClass = "bg-rose-500/15 text-slate-850 border-b border-rose-200/50";
+      if (enableHighlight && isAI) {
+        if (confFloat >= 85) {
+          highlightClass = "bg-rose-500/25 text-rose-950 font-bold border-b-2 border-rose-400/80";
+        } else if (confFloat >= 65) {
+          highlightClass = "bg-rose-500/15 text-rose-900 border-b border-rose-300/50";
         } else {
-          highlightClass = "bg-rose-500/7 text-slate-700";
+          highlightClass = "bg-rose-500/7 text-slate-800 border-b border-rose-200/30";
         }
+      } else if (enableHighlight && !isAI) {
+        highlightClass = "text-slate-700 hover:bg-emerald-50/40 rounded transition-all";
       }
 
       return (
-        <span 
+        <p 
           key={idx} 
-          className={`transition-all duration-300 mr-1.5 leading-relaxed rounded px-0.5 ${highlightClass} ${
-            enableHighlight && score >= 35 ? "cursor-help" : ""
+          className={`transition-all duration-300 mb-3.5 leading-relaxed rounded p-1.5 ${highlightClass} ${
+            enableHighlight ? "cursor-help" : ""
           }`}
-          title={enableHighlight && score >= 35 ? `Tingkat Kecurigaan: ${score.toFixed(0)}% (${reason})` : undefined}
+          title={enableHighlight ? `Paragraf #${idx + 1} | Terdeteksi: ${chunk.prediction} (${chunk.confidence} yakin)` : undefined}
         >
-          {sentence}{" "}
-        </span>
+          {chunk.text}
+        </p>
       );
     });
   };
 
   return (
     <>
-      {/* ============================================================================== */}
       {/* A. LAYOUT KHUSUS PRINT PDF (Hanya Muncul Saat Dicetak) */}
-      {/* ============================================================================== */}
       {result && (
         <div className="hidden print:block w-full max-w-4xl mx-auto p-12 bg-white text-slate-900 font-sans border border-slate-200 rounded-lg">
           <div className="text-center border-b-2 border-slate-800 pb-6 mb-8">
@@ -249,8 +258,14 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
 
           <div className="p-6 bg-slate-50 border border-slate-200 rounded-xl text-center mb-8">
             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Kesimpulan Klasifikasi</p>
-            <h2 className={`text-3xl font-black mt-2 uppercase ${result.prediction === "AI" ? "text-rose-600" : "text-emerald-600"}`}>
-              {result.prediction === "AI" ? <><Cpu className="inline-block w-8 h-8 mr-2" /> AI Generated (Mesin)</> : <><User className="inline-block w-8 h-8 mr-2" /> Human Written (Manusia)</>}
+            <h2 className={`text-3xl font-black mt-2 uppercase ${isYellowZone ? "text-amber-600" : (result.prediction === "AI" ? "text-rose-600" : "text-emerald-600")}`}>
+              {isYellowZone ? (
+                <><AlertTriangle className="inline-block w-8 h-8 mr-2" /> Ragu-Ragu (Kuning)</>
+              ) : result.prediction === "AI" ? (
+                <><Cpu className="inline-block w-8 h-8 mr-2" /> AI Generated (Mesin)</>
+              ) : (
+                <><User className="inline-block w-8 h-8 mr-2" /> Human Written (Manusia)</>
+              )}
             </h2>
             <p className="text-xs text-slate-500 mt-2">Dengan Tingkat Probabilitas Keyakinan Sebesar: <span className="font-bold text-slate-800">{result.confidence}</span></p>
           </div>
@@ -285,9 +300,7 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
         </div>
       )}
 
-      {/* ============================================================================== */}
       {/* 1. TAB ANALYZER */}
-      {/* ============================================================================== */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 print:hidden">
         
         {/* Kolom Kiri: Input Area atau Document Highlight Viewer */}
@@ -316,7 +329,7 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
                 </div>
                 {/* Kontrol Toggle Highlight */}
                 <div className="flex items-center justify-between px-1">
-                  <span className="text-[10px] text-slate-400">* Sentuh kalimat berwarna untuk melihat alasan indikasi mesin.</span>
+                  <span className="text-[10px] text-slate-400">* Sentuh kalimat/paragraf berwarna untuk melihat alasan indikasi mesin.</span>
                   <label className="inline-flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-600">
                     <input 
                       type="checkbox" 
@@ -357,7 +370,7 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
 
         {/* Kolom Kanan: Hasil & Penjelasan Diagnostik */}
         <div className="space-y-6">
-          <div className="bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm min-h-[350px] flex flex-col justify-between">
+          <div className="bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm min-h-87.5 flex flex-col justify-between">
             {loading ? (
               <ScannerLoader />
             ) : result ? (
@@ -412,10 +425,15 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
                 {resultTab === "overview" && (
                   <div className="space-y-4 animate-fade-in">
                     
-                    {/* ILUSTRASI VISUAL DETAIL (Robot untuk AI, Pena untuk Human) */}
+                    {/* ILUSTRASI VISUAL DETAIL */}
                     <div className="flex justify-center pt-2">
-                      {result.prediction === "AI" ? (
-                        // Ilustrasi Kepala Robot Sirkuit Futuristik (Rose Theme)
+                      {isYellowZone ? (
+                        <svg width="100" height="100" viewBox="0 0 100 100" fill="none" className="animate-bounce [animation-duration:3s]">
+                          <polygon points="50,15 90,80 10,80" fill="#fffbeb" stroke="#d97706" strokeWidth="4" strokeLinejoin="round" />
+                          <circle cx="50" cy="70" r="4" fill="#d97706" />
+                          <path d="M50,35 V58" stroke="#d97706" strokeWidth="4" strokeLinecap="round" />
+                        </svg>
+                      ) : result.prediction === "AI" ? (
                         <svg width="100" height="100" viewBox="0 0 100 100" fill="none" className="animate-bounce [animation-duration:3s]">
                           <rect x="25" y="25" width="50" height="44" rx="12" fill="#fff1f2" stroke="#f43f5e" strokeWidth="4" />
                           <path d="M35,69 V77 M65,69 V77" stroke="#f43f5e" strokeWidth="4" strokeLinecap="round" />
@@ -427,7 +445,6 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
                           <path d="M42,56 Q50,62 58,56" stroke="#f43f5e" strokeWidth="3.5" strokeLinecap="round" />
                         </svg>
                       ) : (
-                        // Ilustrasi Pena Bulu Klasik & Botol Tinta (Emerald Theme)
                         <svg width="100" height="100" viewBox="0 0 100 100" fill="none" className="animate-bounce [animation-duration:3s]">
                           <rect x="25" y="55" width="24" height="24" rx="6" fill="#ecfdf5" stroke="#10b981" strokeWidth="4" />
                           <rect x="31" y="47" width="12" height="8" rx="2" fill="#10b981" />
@@ -442,13 +459,17 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
 
                     {/* Hasil Utama */}
                     <div className="text-center py-1">
-                      <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                        result.prediction === "AI" ? "bg-rose-50 text-rose-700 border border-rose-100" : "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                      }`}>
-                        {result.prediction === "AI" ? "Mesin" : "Manusia"}
+                      <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${badgeColorClass}`}>
+                        {isYellowZone ? "Ragu-Ragu" : (result.prediction === "AI" ? "Mesin" : "Manusia")}
                       </span>
-                      <h3 className={`text-2xl font-black mt-2 uppercase ${result.prediction === "AI" ? "text-rose-600" : "text-emerald-600"}`}>
-                        {result.prediction === "AI" ? <><Cpu className="inline-block w-6 h-6 mr-2" /> AI Generated</> : <><User className="inline-block w-6 h-6 mr-2" /> Human Written</>}
+                      <h3 className={`text-2xl font-black mt-2 uppercase ${confidenceColorClass}`}>
+                        {isYellowZone ? (
+                          <><AlertTriangle className="inline-block w-6 h-6 mr-2" /> RAGU-RAGU</>
+                        ) : result.prediction === "AI" ? (
+                          <><Cpu className="inline-block w-6 h-6 mr-2" /> AI Generated</>
+                        ) : (
+                          <><User className="inline-block w-6 h-6 mr-2" /> Human Written</>
+                        )}
                       </h3>
                     </div>
 
@@ -456,11 +477,11 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
                     <div className="space-y-1">
                       <div className="flex justify-between text-[11px] font-semibold">
                         <span className="text-slate-400">Tingkat Keyakinan</span>
-                        <span className={`font-bold ${result.prediction === "AI" ? "text-rose-600" : "text-emerald-600"}`}>{result.confidence}</span>
+                        <span className={`font-bold ${confidenceColorClass}`}>{result.confidence}</span>
                       </div>
                       <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden relative">
                         <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-slate-300 z-10" />
-                        <div className={`h-full ${result.prediction === "AI" ? "bg-rose-500" : "bg-emerald-500"}`} style={{ width: result.confidence }} />
+                        <div className={`h-full ${barColorClass}`} style={{ width: result.confidence }} />
                       </div>
                     </div>
 
@@ -471,7 +492,7 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
                   </div>
                 )}
 
-                {/* TAB 2: STILOMETRI (4 SLIDER GAYA BAHASA + 3 KAPSUL POS DENSITY - ANTI-SCROLL) */}
+                {/* TAB 2: STILOMETRI */}
                 {resultTab === "stylometry" && (
                   <div className="space-y-4.5 animate-fade-in">
                     <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase pb-1 border-b border-slate-50">
@@ -501,7 +522,7 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
                     {/* Parameter 2: Keberagaman Kosakata */}
                     <div className="space-y-1 text-xs pt-0.5">
                       <div className="flex justify-between text-[11px]">
-                        <span className="text-slate-500 font-semibold">Kekayaan Kosakata</span>
+                        <span className="text-slate-500 font-semibold">Keberagaman Kosakata</span>
                         <span className="font-bold text-slate-700">{result.stylometry.lex_div}</span>
                       </div>
                       <div className="relative w-full h-1 bg-slate-100 rounded-full">
@@ -536,16 +557,14 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
                       </p>
                     </div>
 
-                    {/* Parameter 4: BURSTINESS / VARIABILITAS PANJANG KALIMAT */}
+                    {/* Parameter 4: BURSTINESS */}
                     <div className="space-y-1 text-xs pt-0.5">
                       <div className="flex justify-between text-[11px]">
                         <span className="text-slate-500 font-semibold">Variabilitas Kalimat (Burstiness)</span>
                         <span className="font-bold text-slate-700">{result.stylometry.sent_len_var}</span>
                       </div>
                       <div className="relative w-full h-1 bg-slate-100 rounded-full">
-                        {/* Batasan Rata-rata AI (1.0 - 3.5 sd pada skala 10) */}
                         <div className="absolute left-[10%] right-[65%] h-full bg-rose-200/50" />
-                        {/* Batasan Rata-rata Manusia (4.5 - 9.0 sd pada skala 10) */}
                         <div className="absolute left-[45%] right-[10%] h-full bg-emerald-200/50" />
                         <div 
                           className="absolute w-2.5 h-2.5 bg-indigo-600 border border-white rounded-full -top-0.5 shadow-sm transition-all" 
@@ -557,21 +576,18 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
                       </p>
                     </div>
 
-                    {/* DISTRIBUSI KELAS KATA / POS DENSITY (NOMINA, VERBA, ADJEKTIVA) */}
+                    {/* DISTRIBUSI KELAS KATA */}
                     <div className="pt-3 border-t border-slate-100 space-y-2">
                       <h4 className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Komposisi Kelas Kata (POS Distribution):</h4>
                       <div className="grid grid-cols-3 gap-2 text-center text-[10px]">
-                        {/* Kapsul 1: Noun */}
                         <div className="p-2 bg-indigo-50/50 border border-indigo-100/60 rounded-xl space-y-0.5">
                           <span className="block font-semibold text-slate-400">NOMINA (Benda)</span>
                           <span className="block font-extrabold text-indigo-700 text-xs">{result.stylometry.noun_dens}</span>
                         </div>
-                        {/* Kapsul 2: Verb */}
                         <div className="p-2 bg-emerald-50/50 border border-emerald-100/60 rounded-xl space-y-0.5">
                           <span className="block font-semibold text-slate-400">VERBA (Kerja)</span>
                           <span className="block font-extrabold text-emerald-700 text-xs">{result.stylometry.verb_dens}</span>
                         </div>
-                        {/* Kapsul 3: Adj */}
                         <div className="p-2 bg-rose-50/50 border border-rose-100/60 rounded-xl space-y-0.5">
                           <span className="block font-semibold text-slate-400">ADJEKTIVA (Sifat)</span>
                           <span className="block font-extrabold text-rose-700 text-xs">{result.stylometry.adj_dens}</span>
@@ -581,7 +597,8 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
 
                   </div>
                 )}
-                {/* TAB 3: KOSAKATA (TF-IDF CLUES & MATH EXPLANATION) */}
+
+                {/* TAB 3: KOSAKATA */}
                 {resultTab === "tfidf" && (
                   <div className="space-y-4 animate-fade-in">
                     {detectedAiWords.length > 0 ? (
@@ -591,10 +608,8 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
                           <p className="text-[9px] text-slate-400">Kosakata penanda mesin yang terdeteksi di dalam dokumen Anda:</p>
                         </div>
                         
-                        {/* GRID 2 KOLOM (Bebas tabrakan karena disusun secara vertikal) */}
                         <div className="grid grid-cols-3 gap-3 pt-1">
                           {detectedAiWords.map((item, idx) => {
-                            // Cari indeks asli untuk menentukan peringkat signifikansi
                             const originalIndex = result.ai_keywords.findIndex(kw => kw.word === item.word);
                             
                             let badgeText = "Low";
@@ -633,16 +648,13 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
                                 className={`flex flex-col justify-between p-3 border border-l-4 rounded-r-xl rounded-l-md transition-all shadow-xs h-22 ${cardClass}`}
                                 title={`Kata "${item.word}" memiliki nilai koefisien model sebesar ${item.weight.toFixed(4)}. (${badgeText})`}
                               >
-                                {/* Baris Atas: Kata & Sensor Glow Bulat */}
                                 <div className="flex justify-between items-center w-full">
-                                  <span className={`text-xs font-black uppercase tracking-wider truncate max-w-[80px] sm:max-w-[100px] ${textClass}`}>
+                                  <span className={`text-xs font-black uppercase tracking-wider truncate max-w-20 sm:max-w-25 ${textClass}`}>
                                     {item.word}
                                   </span>
-                                  {/* Titik sensor berdenyut */}
                                   <span className={`w-2 h-2 rounded-full ${dotClass} animate-pulse`} />
                                 </div>
 
-                                {/* Baris Bawah: Koefisien Asli & Label Singkat */}
                                 <div className="flex justify-between items-center w-full pt-1.5 border-t border-slate-100/60 text-[9px] text-slate-400 font-bold">
                                   <span>Coeff: {item.weight.toFixed(2)}</span>
                                   <span className={`tracking-wider ${badgeTextClass}`}>
@@ -658,10 +670,7 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
                       <div className="text-center py-12 text-slate-400 text-xs">Tidak ada kosakata khas mesin yang dominan terdeteksi.</div>
                     )}
 
-                    {/* KOTAK EDUKASI TEORI TERPADU (SANGAT KOMPREHENSIF - DUAL INSIGHT) */}
                     <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl text-[10px] text-slate-500 leading-relaxed space-y-3 text-left">
-                      
-                      {/* Bagian 1: Teori Rumus TF-IDF */}
                       <div className="space-y-1">
                         <p className="font-bold text-slate-700 uppercase tracking-wider text-[9px] flex items-center gap-1">
                           <span><BarChart2 className="inline-block w-3 h-3 mr-1" /></span> Bagaimana TF-IDF Menilai Ini?
@@ -671,10 +680,8 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
                         </p>
                       </div>
                       
-                      {/* Garis Pemisah Perak Tipis */}
                       <div className="h-px bg-slate-200/60 w-full" />
                       
-                      {/* Bagian 2: Teori Bobot Koefisien Model */}
                       <div className="space-y-1">
                         <p className="font-bold text-slate-700 uppercase tracking-wider text-[9px] flex items-center gap-1">
                           <span><Target className="inline-block w-3 h-3 mr-1" /></span> Kategori Tingkat Pembobotan:
@@ -687,10 +694,6 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
 
                   </div>
                 )}
-
-                    
-
-                {/* ========================== ACTIONS FOOTER ========================== */}
 
                 {/* Tombol Cetak Laporan PDF */}
                 <div className="pt-3 border-t border-slate-100">
@@ -753,46 +756,32 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
 
               </div>
             ) : (
-              // SESUDAH (Mewujudkan Visualisasi Isometrik Scanner Machine Canggih)
-              <div className="text-center py-10 text-slate-400 space-y-6 flex flex-col items-center justify-center min-h-[300px] animate-fade-in">
+              <div className="text-center py-10 text-slate-400 space-y-6 flex flex-col items-center justify-center min-h-75 animate-fade-in">
                 
-                {/* ILUSTRASI VEKTOR ISOMETRIK SCANNER (100% NATIVE SVG) */}
                 <svg width="200" height="180" viewBox="0 0 200 180" fill="none" className="mx-auto">
-                  {/* Grid Network Latar Belakang */}
                   <path d="M20,90 L100,50 L180,90 L100,130 Z" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3,3" />
                   <path d="M40,90 L100,60 L160,90 L100,120 Z" stroke="#e2e8f0" strokeWidth="1" />
-                  
-                  {/* Dudukan Isometrik (Mesin Scanner) */}
                   <path d="M50,110 L100,85 L150,110 L100,135 Z" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="2" />
                   <path d="M50,110 V120 L100,145 V135 Z" fill="#f1f5f9" stroke="#cbd5e1" strokeWidth="2" />
                   <path d="M150,110 V120 L100,145 V135 Z" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="2" />
                   
-                  {/* Dokumen yang Melayang (Melakukan Gerakan Memantul Lambat) */}
                   <g className="animate-bounce [animation-duration:4s]">
                     <path d="M70,80 L110,60 L140,75 L100,95 Z" fill="#ffffff" stroke="#94a3b8" strokeWidth="1.5" />
-                    {/* Garis-Garis Tulisan di Kertas */}
                     <line x1="85" y1="75" x2="115" y2="60" stroke="#e2e8f0" strokeWidth="2" strokeLinecap="round" />
                     <line x1="90" y1="82" x2="125" y2="65" stroke="#e2e8f0" strokeWidth="2" strokeLinecap="round" />
                     <line x1="95" y1="89" x2="115" y2="79" stroke="#e2e8f0" strokeWidth="2" strokeLinecap="round" />
                   </g>
 
-                  {/* Sinar Laser Pemindai Holografik (Berdenyut/Pulse) */}
                   <g className="animate-pulse">
-                    {/* Pancaran Sinar Kerucut */}
                     <path d="M100,35 L70,80 L100,95 Z" fill="url(#laser-cone-left)" opacity="0.15" />
                     <path d="M100,35 L140,75 L100,95 Z" fill="url(#laser-cone-right)" opacity="0.15" />
-                    
-                    {/* Garis Pancaran Utama */}
                     <path d="M100,35 L70,80" stroke="url(#laser-line)" strokeWidth="1.5" opacity="0.5" />
                     <path d="M100,35 L140,75" stroke="url(#laser-line)" strokeWidth="1.5" opacity="0.5" />
                     <path d="M100,35 L100,95" stroke="url(#laser-line)" strokeWidth="1.5" opacity="0.5" />
-                    
-                    {/* Pemancar Sinar Di Atas */}
                     <circle cx="100" cy="35" r="5" fill="#6366f1" />
                     <circle cx="100" cy="35" r="9" stroke="#6366f1" strokeWidth="1" className="animate-ping" />
                   </g>
 
-                  {/* Gradasi Warna Laser */}
                   <defs>
                     <linearGradient id="laser-line" x1="100" y1="35" x2="100" y2="95">
                       <stop offset="0%" stopColor="#6366f1" />
@@ -811,7 +800,7 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
 
                 <div className="space-y-1">
                   <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Detektor Siap Digunakan</h4>
-                  <p className="text-[10px] text-slate-400 leading-relaxed max-w-[200px] mx-auto">
+                  <p className="text-[10px] text-slate-400 leading-relaxed max-w-50 mx-auto">
                     Tempel artikel Anda di kotak kiri, lalu klik eksekusi untuk memulai pemindaian stilometri.
                   </p>
                 </div>
