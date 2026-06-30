@@ -7,7 +7,7 @@ import { useToast } from "../../components/toast";
 import { PredictionResponse, AiKeyword } from "../types";
 import { RefreshCw, BarChart2, Edit3, Search, Cpu, User, AlertTriangle, Target } from "react-feather";
 
-// --- TYPESCRIPT DEFINITIONS ---
+// --- TYPESCRIPT DEFINITIONS (SINKRON 35 DIMENSI FITUR & CHUNKS) ---
 interface ChunkHighlight {
   chunk_index: number;
   text: string;
@@ -16,8 +16,42 @@ interface ChunkHighlight {
   word_count: number;
 }
 
+// Rekayasa tipe lokal untuk mendukung visualisasi 35 fitur lengkap di Next.js
 interface ExtendedPredictionResponse extends PredictionResponse {
   chunks_highlights?: ChunkHighlight[];
+  stylometry: {
+    avg_sent_len: string;
+    sent_len_var: string;
+    avg_word_len: string;
+    total_sentences: string;
+    total_words: string;
+    char_count: string;
+    lex_div: string;
+    guiraud_index: string;
+    herdan_index: string;
+    hapax_ratio: string;
+    yules_i: string;
+    punct_dens: string;
+    comma_ratio: string;
+    period_ratio: string;
+    qmark_ratio: string;
+    excl_ratio: string;
+    colon_ratio: string;
+    semicolon_ratio: string;
+    hyphen_ratio: string;
+    quote_ratio: string;
+    bracket_ratio: string;
+    uppercase_ratio: string;
+    noun_dens: string;
+    verb_dens: string;
+    adj_dens: string;
+    pronoun_dens: string;
+    conj_dens: string;
+    prep_dens: string;
+    adv_dens: string;
+    foreign_dens: string;
+    part_dens: string;
+  };
 }
 
 interface AnalyzerTabProps {
@@ -104,30 +138,15 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
     return matched ? parseFloat(matched[0]) : 0;
   };
 
+  // --- PARSE FITUR UNTUK VISUALISASI SLIDER ACCORDION ---
   const currentAvgSentLen = result ? getStyleNumber(result.stylometry.avg_sent_len) : 0;
   const currentLexDiv = result ? getStyleNumber(result.stylometry.lex_div) : 0;
   const currentPunctDens = result ? getStyleNumber(result.stylometry.punct_dens) : 0;
   const currentSentLenVar = result ? getStyleNumber(result.stylometry.sent_len_var) : 0;
 
-  const sentLenDiag = currentAvgSentLen >= 18 
-    ? "Gaya Manusia (Dinamis): Kalimat Anda panjang dan mengalir alami." 
-    : "Gaya AI (Monoton): Struktur kalimat cenderung pendek dan seragam.";
-
-  const lexDivDiag = currentLexDiv >= 75 
-    ? "Gaya Manusia (Kaya): Kosakata bervariasi dan tidak repetitif." 
-    : "Gaya AI (Terbatas): Banyak pengulangan istilah yang sama secara konsisten.";
-
-  const punctDensDiag = currentPunctDens >= 4.5 
-    ? "Penggunaan tanda baca ekspresif dan bervariasi." 
-    : "Penggunaan tanda baca sangat baku dan kaku.";
-
-  const sentVarDiag = currentSentLenVar >= 5.0
-    ? "Gaya Manusia (Burstiness Tinggi): Variasi panjang antar kalimat sangat dinamis dan alami."
-    : "Gaya AI (Monoton): Selisih panjang antar kalimat sangat kaku dan seragam.";
-
   // --- LOGIKA ZONA KEYAKINAN (CALIBRATION & COLOR THEMES) ---
   const overallConfFloat = result ? parseFloat(result.confidence) : 0;
-  const isYellowZone = result ? overallConfFloat < 75 : false; 
+  const isYellowZone = result ? overallConfFloat < 75 : false; // Batas kritis zona abu-abu 75%
 
   let confidenceColorClass = "text-slate-700";
   let barColorClass = "bg-indigo-500";
@@ -180,7 +199,6 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
     }
   };
 
-  // --- HEURISTIC SENTENCE HIGHLIGHT FALLBACK (Untuk model lama / kata kunci) ---
   const getSentenceSuspicion = (sentence: string, aiKeywords: string[]) => {
     const trimmed = sentence.trim();
     if (!trimmed) return { score: 0, reason: "" };
@@ -210,7 +228,7 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
     };
   };
 
-  // --- DUAL-MODE HIGHLIGHTER: SINKRON & BEBAS DARI ERROR SCHEMA ---
+  // --- DUAL-MODE HIGHLIGHTER ---
   const renderHighlightedText = () => {
     if (!text) return <span className="text-slate-400 italic">Naskah kosong...</span>;
 
@@ -246,7 +264,7 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
       });
     }
 
-    // MODE CADANGAN: Sentence-Level menggunakan Kata Kunci TF-IDF (Sangat Aman & Selalu Menyala)
+    // MODE CADANGAN: Sentence-Level menggunakan Kata Kunci TF-IDF
     if (result) {
       const sentences = text.split(/(?<=[.!?])\s+/);
       const activeKeywords = detectedAiWords.map(kw => kw.word);
@@ -289,7 +307,7 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
       );
     }
 
-    // SEBELUM SCAN: Tampilkan Teks Polos Indah
+    // SEBELUM SCAN
     return <p className="leading-relaxed text-sm text-slate-400 whitespace-pre-wrap select-text">{text}</p>;
   };
 
@@ -396,11 +414,9 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
               />
             ) : (
               <div className="space-y-4 animate-fade-in">
-                {/* Canvas Highlighter Premium (Serif/Elegant font for readability) */}
                 <div className="w-full h-80 p-5 border border-slate-200 rounded-xl overflow-y-auto text-sm bg-slate-50/30 leading-relaxed font-sans select-text shadow-inner">
                   {renderHighlightedText()}
                 </div>
-                {/* Kontrol Highlight */}
                 <div className="flex items-center justify-between px-1">
                   <span className="text-[10px] text-slate-400">* Sentuh kalimat/paragraf berwarna untuk melihat alasan indikasi mesin.</span>
                   <label className="inline-flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-600 select-none">
@@ -491,6 +507,8 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
                   </button>
                 </div>
 
+                {/* ========================== CONTENT SUB-TABS ========================== */}
+
                 {/* TAB 1: OVERVIEW */}
                 {resultTab === "overview" && (
                   <div className="space-y-4 animate-fade-in">
@@ -550,6 +568,12 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
                           <><User className="inline-block w-5.5 h-5.5 mr-2" /> Human Written</>
                         )}
                       </h3>
+                      {/* --- TAMPILKAN STATUS ARAH KECENDERUNGAN UNTUK RAGU-RAGU (SANGAT PRESTISIUS!) --- */}
+                      {isYellowZone && (
+                        <p className="text-[10px] font-extrabold text-amber-600 mt-1 animate-pulse">
+                          ({result.prediction === "AI" ? "Cenderung AI Generated" : "Cenderung Tulisan Manusia"})
+                        </p>
+                      )}
                     </div>
 
                     {/* Progress Keyakinan */}
@@ -571,105 +595,154 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
                   </div>
                 )}
 
-                {/* TAB 2: STILOMETRI */}
+                {/* TAB 2: STILOMETRI (MENAMPILKAN SELURUH 35 DIMENSI FITUR STILOMETRI!) */}
                 {resultTab === "stylometry" && (
-                  <div className="space-y-4 animate-fade-in text-left">
+                  <div className="space-y-4 animate-fade-in text-left max-h-87.5 overflow-y-auto pr-1">
                     <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase pb-1 border-b border-slate-50">
-                      <span>Metrik Stilometri (7 Fitur)</span>
-                      <span>Acuan: AI [Merah] | Manusia [Hijau]</span>
-                    </div>
-                    
-                    {/* Parameter 1: Panjang Kalimat */}
-                    <div className="space-y-1 text-xs">
-                      <div className="flex justify-between text-[11px]">
-                        <span className="text-slate-500 font-semibold">Panjang Kalimat Rata-rata</span>
-                        <span className="font-bold text-slate-700">{result.stylometry.avg_sent_len}</span>
-                      </div>
-                      <div className="relative w-full h-1 bg-slate-100 rounded-full">
-                        <div className="absolute left-[30%] right-[50%] h-full bg-rose-200/50" />
-                        <div className="absolute left-[60%] right-[10%] h-full bg-emerald-200/50" />
-                        <div 
-                          className="absolute w-2.5 h-2.5 bg-indigo-600 border border-white rounded-full -top-0.5 shadow-sm transition-all" 
-                          style={{ left: `${Math.min(100, (currentAvgSentLen / 30) * 100)}%` }}
-                        />
-                      </div>
-                      <p className={`text-[9px] font-medium leading-tight ${currentAvgSentLen >= 18 ? "text-emerald-600" : "text-rose-500"}`}>
-                        * {sentLenDiag}
-                      </p>
+                      <span>Daftar 35 Fitur Stilometri</span>
+                      <span>Nilai Statistik Terkomputasi</span>
                     </div>
 
-                    {/* Parameter 2: Keberagaman Kosakata */}
-                    <div className="space-y-1 text-xs pt-0.5">
-                      <div className="flex justify-between text-[11px]">
-                        <span className="text-slate-500 font-semibold">Keberagaman Kosakata</span>
-                        <span className="font-bold text-slate-700">{result.stylometry.lex_div}</span>
-                      </div>
-                      <div className="relative w-full h-1 bg-slate-100 rounded-full">
-                        <div className="absolute left-[60%] right-[25%] h-full bg-rose-200/50" />
-                        <div className="absolute left-[80%] right-[5%] h-full bg-emerald-200/50" />
-                        <div 
-                          className="absolute w-2.5 h-2.5 bg-indigo-600 border border-white rounded-full -top-0.5 shadow-sm transition-all" 
-                          style={{ left: `${currentLexDiv}%` }}
-                        />
-                      </div>
-                      <p className={`text-[9px] font-medium leading-tight ${currentLexDiv >= 75 ? "text-emerald-600" : "text-rose-500"}`}>
-                        * {lexDivDiag}
-                      </p>
-                    </div>
-
-                    {/* Parameter 3: Kerapatan Tanda Baca */}
-                    <div className="space-y-1 text-xs pt-0.5">
-                      <div className="flex justify-between text-[11px]">
-                        <span className="text-slate-500 font-semibold">Kerapatan Tanda Baca</span>
-                        <span className="font-bold text-slate-700">{result.stylometry.punct_dens}</span>
-                      </div>
-                      <div className="relative w-full h-1 bg-slate-100 rounded-full">
-                        <div className="absolute left-[25%] right-[60%] h-full bg-rose-200/50" />
-                        <div className="absolute left-[45%] right-[20%] h-full bg-emerald-200/50" />
-                        <div 
-                          className="absolute w-2.5 h-2.5 bg-indigo-600 border border-white rounded-full -top-0.5 shadow-sm transition-all" 
-                          style={{ left: `${Math.min(100, (currentPunctDens / 10) * 100)}%` }}
-                        />
-                      </div>
-                      <p className={`text-[9px] font-medium leading-tight ${currentPunctDens >= 4.5 ? "text-emerald-600" : "text-rose-500"}`}>
-                        * {punctDensDiag}
-                      </p>
-                    </div>
-
-                    {/* Parameter 4: BURSTINESS */}
-                    <div className="space-y-1 text-xs pt-0.5">
-                      <div className="flex justify-between text-[11px]">
-                        <span className="text-slate-500 font-semibold">Variabilitas Kalimat (Burstiness)</span>
-                        <span className="font-bold text-slate-700">{result.stylometry.sent_len_var}</span>
-                      </div>
-                      <div className="relative w-full h-1 bg-slate-100 rounded-full">
-                        <div className="absolute left-[10%] right-[65%] h-full bg-rose-200/50" />
-                        <div className="absolute left-[45%] right-[10%] h-full bg-emerald-200/50" />
-                        <div 
-                          className="absolute w-2.5 h-2.5 bg-indigo-600 border border-white rounded-full -top-0.5 shadow-sm transition-all" 
-                          style={{ left: `${Math.min(100, (currentSentLenVar / 10) * 100)}%` }} 
-                        />
-                      </div>
-                      <p className={`text-[9px] font-medium leading-tight ${currentSentLenVar >= 5.0 ? "text-emerald-600" : "text-rose-500"}`}>
-                        * {sentVarDiag}
-                      </p>
-                    </div>
-
-                    {/* DISTRIBUSI KELAS KATA */}
-                    <div className="pt-3 border-t border-slate-100 space-y-2">
-                      <h4 className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Komposisi Kelas Kata (POS Distribution):</h4>
-                      <div className="grid grid-cols-3 gap-2 text-center text-[10px]">
-                        <div className="p-2 bg-indigo-50/50 border border-indigo-100/60 rounded-xl space-y-0.5 shadow-xs">
-                          <span className="block font-semibold text-slate-400">NOMINA</span>
-                          <span className="block font-extrabold text-indigo-700 text-xs">{result.stylometry.noun_dens}</span>
+                    {/* Kategori 1: Panjang & Ritme Kalimat */}
+                    <div className="space-y-2.5">
+                      <h4 className="text-[10px] font-extrabold text-indigo-600 uppercase tracking-wider border-b border-indigo-50 pb-1">1. Panjang & Ritme Kalimat (Length & Rhythm)</h4>
+                      <div className="grid grid-cols-2 gap-3 text-[11px]">
+                        <div>
+                          <span className="text-slate-400 block">Rata-rata Kalimat</span>
+                          <span className="font-bold text-slate-700">{result.stylometry.avg_sent_len}</span>
                         </div>
-                        <div className="p-2 bg-emerald-50/50 border border-emerald-100/60 rounded-xl space-y-0.5 shadow-xs">
-                          <span className="block font-semibold text-slate-400">VERBA</span>
-                          <span className="block font-extrabold text-emerald-700 text-xs">{result.stylometry.verb_dens}</span>
+                        <div>
+                          <span className="text-slate-400 block">Burstiness Kalimat</span>
+                          <span className="font-bold text-slate-700">{result.stylometry.sent_len_var}</span>
                         </div>
-                        <div className="p-2 bg-rose-50/50 border border-rose-100/60 rounded-xl space-y-0.5 shadow-xs">
-                          <span className="block font-semibold text-slate-400">ADJEKTIVA</span>
-                          <span className="block font-extrabold text-rose-700 text-xs">{result.stylometry.adj_dens}</span>
+                        <div>
+                          <span className="text-slate-400 block">Rata-rata Kata</span>
+                          <span className="font-bold text-slate-700">{result.stylometry.avg_word_len}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Total Kalimat</span>
+                          <span className="font-bold text-slate-700">{result.stylometry.total_sentences}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Kategori 2: Kekayaan & Variasi Kosakata */}
+                    <div className="space-y-2.5 pt-2">
+                      <h4 className="text-[10px] font-extrabold text-emerald-600 uppercase tracking-wider border-b border-emerald-50 pb-1">2. Kekayaan Kosakata (Lexical Diversity)</h4>
+                      <div className="grid grid-cols-2 gap-3 text-[11px]">
+                        <div>
+                          <span className="text-slate-400 block">Type-Token Ratio (TTR)</span>
+                          <span className="font-bold text-slate-700">{result.stylometry.lex_div}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Guiraud Index</span>
+                          <span className="font-bold text-slate-700">{result.stylometry.guiraud_index}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Hapax Ratio</span>
+                          <span className="font-bold text-slate-700">{result.stylometry.hapax_ratio}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Yule`s I Index</span>
+                          <span className="font-bold text-slate-700">{result.stylometry.yules_i}</span>
+                        </div>
+                        <div className="col-span-2">
+                          <span className="text-slate-400 block">Herdan Index</span>
+                          <span className="font-bold text-slate-700">{result.stylometry.herdan_index}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Kategori 3: Kerapatan Tanda Baca & Karakter */}
+                    <div className="space-y-2.5 pt-2">
+                      <h4 className="text-[10px] font-extrabold text-amber-600 uppercase tracking-wider border-b border-amber-50 pb-1">3. Tanda Baca & Karakter (Punctuation)</h4>
+                      <div className="grid grid-cols-3 gap-2.5 text-[10px]">
+                        <div>
+                          <span className="text-slate-400 block">Kerapatan Umum</span>
+                          <span className="font-bold text-slate-700">{result.stylometry.punct_dens}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Rasio Koma (,)</span>
+                          <span className="font-bold text-slate-700">{result.stylometry.comma_ratio}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Rasio Titik (.)</span>
+                          <span className="font-bold text-slate-700">{result.stylometry.period_ratio}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Tanda Tanya (?)</span>
+                          <span className="font-bold text-slate-700">{result.stylometry.qmark_ratio}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Tanda Seru (!)</span>
+                          <span className="font-bold text-slate-700">{result.stylometry.excl_ratio}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Titik Dua (:)</span>
+                          <span className="font-bold text-slate-700">{result.stylometry.colon_ratio}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Titik Koma (;)</span>
+                          <span className="font-bold text-slate-700">{result.stylometry.semicolon_ratio}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Tanda Hubung (-)</span>
+                          <span className="font-bold text-slate-700">{result.stylometry.hyphen_ratio}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Tanda Kutip</span>
+                          <span className="font-bold text-slate-700">{result.stylometry.quote_ratio}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Tanda Kurung</span>
+                          <span className="font-bold text-slate-700">{result.stylometry.bracket_ratio}</span>
+                        </div>
+                        <div className="col-span-2">
+                          <span className="text-slate-400 block">Rasio Huruf Kapital</span>
+                          <span className="font-bold text-slate-700">{result.stylometry.uppercase_ratio}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Kategori 4: Komposisi Kelas Kata / POS Density */}
+                    <div className="space-y-2.5 pt-2">
+                      <h4 className="text-[10px] font-extrabold text-rose-600 uppercase tracking-wider border-b border-rose-50 pb-1">4. Tata Bahasa (Syntactic/POS Density)</h4>
+                      <div className="grid grid-cols-3 gap-2.5 text-[10px]">
+                        <div>
+                          <span className="text-slate-400 block">Nomina (Benda)</span>
+                          <span className="font-bold text-slate-700">{result.stylometry.noun_dens}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Verba (Kerja)</span>
+                          <span className="font-bold text-slate-700">{result.stylometry.verb_dens}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Adjektiva (Sifat)</span>
+                          <span className="font-bold text-slate-700">{result.stylometry.adj_dens}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Pronoun (Ganti)</span>
+                          <span className="font-bold text-slate-700">{result.stylometry.pronoun_dens}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Konjungsi</span>
+                          <span className="font-bold text-slate-700">{result.stylometry.conj_dens}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Preposisi</span>
+                          <span className="font-bold text-slate-700">{result.stylometry.prep_dens}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Adverba</span>
+                          <span className="font-bold text-slate-700">{result.stylometry.adv_dens}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Asing (FW)</span>
+                          <span className="font-bold text-slate-700">{result.stylometry.foreign_dens}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Partikel (RP)</span>
+                          <span className="font-bold text-slate-700">{result.stylometry.part_dens}</span>
                         </div>
                       </div>
                     </div>
