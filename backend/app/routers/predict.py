@@ -76,61 +76,64 @@ async def predict(
     stylo_shapes = []
 
     try:
+        # INDENTASI LEVEL 1: Blok try utama (Lekukan 8 spasi)
         for idx, paragraph in enumerate(raw_paragraphs):
+            # INDENTASI LEVEL 2: Blok di dalam wilayah 'for' (Lekukan 12 spasi)
             cleaned = clean_text(paragraph)
             words_count = len(cleaned.split())
 
-        # JIKA TEKS ADALAH JUDUL / TAJUK SUB-BAB (SANGAT PENDEK - DI BAWAH 15 KATA)
-        if words_count < 15:
-            # Lewati evaluasi model. Beri status "Neutral" (Bebas Highlight di Next.js)
-            # JANGAN tambahkan ke total_ai_prob agar tidak menyeret turun rata-rata dokumen!
-            chunks_result.append({
-                "chunk_index": idx,
-                "text": paragraph,
-                "prediction": "Neutral",
-                "confidence": "N/A",
-                "probability_ai": 0.5
-            })
-        else:
-            # HANYA EVALUASI PARAGRAF RELEVAN (YANG MEMILIKI PANJANG >= 15 KATA)
-            tfidf_feat = ml_registry.tfidf.transform([cleaned])
-            tfidf_shapes.append(tfidf_feat.shape)
-            
-            style_feat_list = extract_stylometry(paragraph)
-            style_feat_sparse = csr_matrix([style_feat_list])
-            stylo_shapes.append(style_feat_sparse.shape)
+            # INDENTASI LEVEL 3: Blok pengujian di dalam wilayah 'for' (Lekukan 16 spasi)
+            if words_count < 15:
+                # Lewati evaluasi model. Beri status "Neutral" (Bebas Highlight di Next.js)
+                # JANGAN tambahkan ke total_ai_prob agar tidak menyeret turun rata-rata dokumen!
+                chunks_result.append({
+                    "chunk_index": idx,
+                    "text": paragraph,
+                    "prediction": "Neutral",
+                    "confidence": "N/A",
+                    "probability_ai": 0.5
+                })
+            else:
+                # HANYA EVALUASI PARAGRAF RELEVAN (YANG MEMILIKI PANJANG >= 15 KATA)
+                tfidf_feat = ml_registry.tfidf.transform([cleaned])
+                tfidf_shapes.append(tfidf_feat.shape)
+                
+                style_feat_list = extract_stylometry(paragraph)
+                style_feat_sparse = csr_matrix([style_feat_list])
+                stylo_shapes.append(style_feat_sparse.shape)
 
-            combined = hstack([tfidf_feat, style_feat_sparse]).tocsr()
+                combined = hstack([tfidf_feat, style_feat_sparse]).tocsr()
 
-            if ml_registry.scaler is not None:
-                combined = ml_registry.scaler.transform(combined)
+                if ml_registry.scaler is not None:
+                    combined = ml_registry.scaler.transform(combined)
 
-            expected_features = ml_registry.model.n_features_in_
-            if combined.shape[1] != expected_features:
-                raise HTTPException(
-                    status_code=500, 
-                    detail=f"Feature mismatch pada paragraf ke-{idx+1}: Model membutuhkan {expected_features} fitur, tetapi input menghasilkan {combined.shape[1]}."
-                )
+                expected_features = ml_registry.model.n_features_in_
+                if combined.shape[1] != expected_features:
+                    raise HTTPException(
+                        status_code=500, 
+                        detail=f"Feature mismatch pada paragraf ke-{idx+1}: Model membutuhkan {expected_features} fitur, tetapi input menghasilkan {combined.shape[1]}."
+                    )
 
-            prob = ml_registry.model.predict_proba(combined)[0]
+                prob = ml_registry.model.predict_proba(combined)[0]
 
-            # Akumulasi nilai HANYA untuk paragraf isi yang valid (panjang)
-            total_ai_prob += prob[1]
-            valid_chunks_count += 1
+                # Akumulasi nilai HANYA untuk paragraf isi yang valid (panjang)
+                total_ai_prob += prob[1]
+                valid_chunks_count += 1
 
-            chunk_label = "AI" if prob[1] > 0.5 else "Human"
-            chunk_conf = float(prob[1] if prob[1] > 0.5 else prob[0])
-            chunk_conf_scaled = 0.5 + 0.5 * np.power((chunk_conf - 0.5) / 0.5, 0.6)
+                chunk_label = "AI" if prob[1] > 0.5 else "Human"
+                chunk_conf = float(prob[1] if prob[1] > 0.5 else prob[0])
+                chunk_conf_scaled = 0.5 + 0.5 * np.power((chunk_conf - 0.5) / 0.5, 0.6)
 
-            chunks_result.append({
-                "chunk_index": idx,
-                "text": paragraph,
-                "prediction": chunk_label,
-                "confidence": f"{chunk_conf_scaled * 100:.2f}%",
-                "probability_ai": float(prob[1])
-            })
+                chunks_result.append({
+                    "chunk_index": idx,
+                    "text": paragraph,
+                    "prediction": chunk_label,
+                    "confidence": f"{chunk_conf_scaled * 100:.2f}%",
+                    "probability_ai": float(prob[1])
+                })
 
-        # Agregasi Hasil Akhir (Global Prediction) berdasarkan rata-rata probabilitas AI
+        # --- SELESAI PERULANGAN FOR ---
+        # Baris di bawah ini ditarik mundur sejajar dengan 'for' (Lekukan 8 spasi)
         avg_ai_prob = total_ai_prob / valid_chunks_count if valid_chunks_count > 0 else 0.5
         global_prediction = "AI" if avg_ai_prob > 0.5 else "Human"
         global_confidence_raw = avg_ai_prob if avg_ai_prob > 0.5 else (1.0 - avg_ai_prob)
@@ -214,7 +217,7 @@ async def predict(
                 "uppercase_ratio": f"{global_style_list[21] * 100:.2f}%",
                 "digit_ratio": f"{global_style_list[22] * 100:.2f}%",
                 
-                # Kategori D: Tata Bahasa / POS Density (12 Fitur)
+                # Kategori D: Tata Bahasa (POS Density)
                 "noun_dens": f"{global_style_list[23] * 100:.1f}%",
                 "verb_dens": f"{global_style_list[24] * 100:.1f}%",
                 "adj_dens": f"{global_style_list[25] * 100:.1f}%",

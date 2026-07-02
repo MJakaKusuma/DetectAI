@@ -239,7 +239,7 @@ async def retrain_model(
         update_global_ai_keywords()
 
         # Unggah ke Hugging Face Space (jika token dideklarasikan)
-        hf_token = os.getenv("HF_TOKEN")
+        hf_token = os.getenv("HF_WRITE_TOKEN")
         repo_id = "shouwiku/detectai-backend" 
 
         if hf_token:
