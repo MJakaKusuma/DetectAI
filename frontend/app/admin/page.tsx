@@ -98,9 +98,9 @@ export default function AdminPage() {
       </div>
 
       {activeTab === "dashboard" && <DashboardTab stats={stats} />}
-      {/* {activeTab === "training" && <TrainingTab datasets={datasets} fetchAdminData={fetchAdminData} setDatasets={setDatasets} handleTabChange={handleTabChange} />} */}
+      {activeTab === "training" && <TrainingTab datasets={datasets} fetchAdminData={fetchAdminData} setDatasets={setDatasets} handleTabChange={handleTabChange} />}
       {activeTab === "models" && <ModelsTab models={models} fetchAdminData={fetchAdminData} />}
-      {/* {activeTab === "feedback" && <FeedbackTab feedbacks={feedbacks} />} */}
+      {activeTab === "feedback" && <FeedbackTab feedbacks={feedbacks} />}
 
     </div>
   );

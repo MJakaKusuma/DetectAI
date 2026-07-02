@@ -4,12 +4,24 @@ import { useState } from "react";
 import { FeedbackItem } from "../types";
 
 interface FeedbackTabProps {
-  feedbacks: FeedbackItem[];
+  feedbacks: FeedbackItem[] | null; // Diubah agar mendukung null untuk loading
 }
 
 export default function FeedbackTab({ feedbacks }: FeedbackTabProps) {
   const ROWS_PER_PAGE = 10;
   const [feedbackPage, setFeedbackPage] = useState(1);
+
+  // Tampilan loading screen saat data feedbacks masih bernilai null
+  if (feedbacks === null) {
+    return (
+      <div className="w-full min-h-100 flex items-center justify-center bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm animate-fade-in">
+        <div className="text-center space-y-4">
+          <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-xs text-slate-500 font-medium">Memverifikasi otorisasi & memuat data umpan balik...</p>
+        </div>
+      </div>
+    );
+  }
 
   const indexOfLastRow = feedbackPage * ROWS_PER_PAGE;
   const indexOfFirstRow = indexOfLastRow - ROWS_PER_PAGE;

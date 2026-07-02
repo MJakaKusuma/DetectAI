@@ -8,9 +8,9 @@ import { apiRequest } from "../../lib/api";
 import { FileText, Shuffle, Edit3, Trash2, Loader, ChevronDown, Database, Calendar } from "react-feather";
 
 interface TrainingTabProps {
-  datasets: DatasetItem[];
+  datasets: DatasetItem[] | null; // Diubah agar mendukung null
   fetchAdminData: () => Promise<void>;
-  setDatasets: React.Dispatch<React.SetStateAction<DatasetItem[]>>;
+  setDatasets: React.Dispatch<React.SetStateAction<DatasetItem[] | null>>; // Diubah agar mendukung null
   handleTabChange: (tab: "dashboard" | "training" | "models" | "feedback") => void;
 }
 
@@ -43,6 +43,18 @@ export default function TrainingTab({ datasets, fetchAdminData, setDatasets, han
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Tampilan loading screen saat data datasets masih bernilai null
+  if (datasets === null) {
+    return (
+      <div className="w-full min-h-100 flex items-center justify-center bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm animate-fade-in">
+        <div className="text-center space-y-4">
+          <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-xs text-slate-500 font-medium">Memverifikasi otorisasi & memuat data dataset...</p>
+        </div>
+      </div>
+    );
+  }
 
   const selectedDataset = datasets.find((d) => d.id.toString() === selectedDatasetId);
 
