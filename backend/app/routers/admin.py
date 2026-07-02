@@ -240,7 +240,7 @@ async def retrain_model(
 
         # Unggah ke Hugging Face Space (jika token dideklarasikan)
         hf_token = os.getenv("HF_WRITE_TOKEN")
-        repo_id = "shouwiku/detectai-backend" 
+        repo_id = "shouwiku/detectai-models" 
 
         if hf_token:
             try:
@@ -258,7 +258,7 @@ async def retrain_model(
                         path_or_fileobj=file_p, 
                         path_in_repo=file_p, 
                         repo_id=repo_id, 
-                        repo_type="space", 
+                        repo_type="model", 
                         token=hf_token
                     )
                 print(f"[HF-HUB] BERHASIL! Model, TF-IDF, dan Scaler telah terunggah.")
@@ -272,7 +272,7 @@ async def retrain_model(
             accuracy=acc_hybrid, 
             f1_score=f1_h,
             dataset_id=dataset_id,
-            model_path=active_model_path,
+            model_path=archive_model_path,
             is_active=True
         )
         db.add(new_version_record)
