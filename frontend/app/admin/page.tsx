@@ -15,9 +15,11 @@ import FeedbackTab from "./components/FeedbackTab";
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<"dashboard" | "training" | "models" | "feedback">("dashboard");
   const [stats, setStats] = useState<AdminStats | null>(null);
-  const [datasets, setDatasets] = useState<DatasetItem[]>([]);
-  const [models, setModels] = useState<ModelVersionItem[]>([]);
-  const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>([]);
+  
+  // Ubah inisialisasi awal menjadi null agar memicu efek loading screen
+  const [datasets, setDatasets] = useState<DatasetItem[] | null>(null);
+  const [models, setModels] = useState<ModelVersionItem[] | null>(null);
+  const [feedbacks, setFeedbacks] = useState<FeedbackItem[] | null>(null);
   
   const { showToast } = useToast();
   const router = useRouter();
@@ -48,10 +50,15 @@ export default function AdminPage() {
   }, [activeTab, showToast]);
 
   // ==============================================================================
-  // EVENT HANDLER: TRANSISI TAB (Solusi Menghilangkan set-state-in-effect)
+  // EVENT HANDLER: TRANSISI TAB (Mereset state ke null agar memicu loading)
   // ==============================================================================
   const handleTabChange = (tab: "dashboard" | "training" | "models" | "feedback") => {
     setActiveTab(tab);
+    // Reset data target ke null sewaktu berpindah tab agar memicu loading screen saat memuat data baru
+    if (tab === "dashboard") setStats(null);
+    if (tab === "training") setDatasets(null);
+    if (tab === "models") setModels(null);
+    if (tab === "feedback") setFeedbacks(null);
   };
 
   useEffect(() => {
@@ -62,7 +69,6 @@ export default function AdminPage() {
       return;
     }
 
-    // Menggunakan fungsi asinkron internal untuk memecah render loop kaskade
     const loadData = async () => {
       await fetchAdminData();
     };
@@ -73,15 +79,15 @@ export default function AdminPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 space-y-10 min-h-[75vh]">
       {/* Header */}
-     <div className="mb-8 animate-fade-in">
-      <div className="flex items-center gap-2.5">
-        <span className="text-2xl"><Tool /></span>
-        <h1 className="text-3xl font-black text-slate-800 tracking-tight">Administrator Panel</h1>
+      <div className="mb-8 animate-fade-in">
+        <div className="flex items-center gap-2.5">
+          <span className="text-2xl"><Tool /></span>
+          <h1 className="text-3xl font-black text-slate-800 tracking-tight">Administrator Panel</h1>
+        </div>
+        <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+          Pusat kendali MLOps: Lakukan retraining model, kelola repositori data latih, dan lakukan audit umpan balik dari pengguna.
+        </p>
       </div>
-      <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
-        Pusat kendali MLOps: Lakukan retraining model, kelola repositori data latih, dan lakukan audit umpan balik dari pengguna.
-      </p>
-    </div>
 
       {/* Tab Navigation */}
       <div className="flex border-b border-slate-200 gap-6 overflow-x-auto whitespace-nowrap pb-1">
@@ -92,9 +98,9 @@ export default function AdminPage() {
       </div>
 
       {activeTab === "dashboard" && <DashboardTab stats={stats} />}
-      {activeTab === "training" && <TrainingTab datasets={datasets} fetchAdminData={fetchAdminData} setDatasets={setDatasets} handleTabChange={handleTabChange} />}
+      {/* {activeTab === "training" && <TrainingTab datasets={datasets} fetchAdminData={fetchAdminData} setDatasets={setDatasets} handleTabChange={handleTabChange} />} */}
       {activeTab === "models" && <ModelsTab models={models} fetchAdminData={fetchAdminData} />}
-      {activeTab === "feedback" && <FeedbackTab feedbacks={feedbacks} />}
+      {/* {activeTab === "feedback" && <FeedbackTab feedbacks={feedbacks} />} */}
 
     </div>
   );
