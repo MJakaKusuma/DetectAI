@@ -7,19 +7,20 @@ import { apiRequest } from "../../lib/api";
 import { Loader } from "react-feather";
 
 interface ModelsTabProps {
-  models: ModelVersionItem[] | null; // Diubah agar menerima null saat loading awal
+  models: ModelVersionItem[];
+  isLoading: boolean; // Tambahkan prop isLoading di sini
   fetchAdminData: () => Promise<void>;
 }
 
-export default function ModelsTab({ models, fetchAdminData }: ModelsTabProps) {
+export default function ModelsTab({ models, isLoading, fetchAdminData }: ModelsTabProps) {
   const ROWS_PER_PAGE = 10;
   const [modelPage, setModelPage] = useState(1);
   const { showToast } = useToast();
 
   const [activatingId, setActivatingId] = useState<number | null>(null);
 
-  // loading screen utama dengan gaya yang sama seperti DashboardTab
-  if (!models) {
+  // loading screen aktif jika prop isLoading bernilai true
+  if (isLoading) {
     return (
       <div className="w-full min-h-100 flex items-center justify-center bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm animate-fade-in">
         <div className="text-center space-y-4">
