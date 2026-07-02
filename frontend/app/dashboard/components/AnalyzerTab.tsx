@@ -6,6 +6,7 @@ import { AlertCallout, ScannerLoader } from "../../components/dashboardwidgets";
 import { useToast } from "../../components/toast";
 import { PredictionResponse, AiKeyword } from "../types";
 import { RefreshCw, BarChart2, Edit3, Search, Cpu, User, AlertTriangle, Target } from "react-feather";
+import RadarChart from "@/app/admin/components/RadarChart";
 
 // --- TYPESCRIPT DEFINITIONS (SINKRON 35 DIMENSI FITUR & CHUNKS) ---
 interface ChunkHighlight {
@@ -42,9 +43,19 @@ interface ExtendedPredictionResponse extends PredictionResponse {
     quote_ratio: string;
     bracket_ratio: string;
     uppercase_ratio: string;
+    digit_ratio: string;
     noun_dens: string;
     verb_dens: string;
     adj_dens: string;
+    pronoun_dens: string;
+    conj_dens: string;
+    prep_dens: string;
+    adv_dens: string;
+    num_dens: string;
+    foreign_dens: string;
+    interj_dens: string;
+    det_dens: string;
+    part_dens: string;
   };
 }
 
@@ -195,42 +206,98 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
 
   // --- DUAL-MODE HIGHLIGHTER ---
   // === GANTI BLOK FUNGSI RENDER HIGHLIGHT LAMA ANDA SEPENUHNYA DENGAN INI: ===
+  const getSentenceSuspicion = (sentence: string, aiKeywords: string[]) => {
+    const trimmed = sentence.trim();
+    if (!trimmed) return { score: 0, reason: "" };
+
+    const words = trimmed.split(/\s+/);
+    const wordCount = words.length;
+    
+    const foundKeywords = aiKeywords.filter(word => trimmed.toLowerCase().includes(word));
+    let lexicalScore = 0;
+    if (foundKeywords.length === 1) {
+      lexicalScore = 35;
+    } else if (foundKeywords.length > 1) {
+      lexicalScore = 50;
+    }
+
+    const lengthScore = Math.max(0, 50 - Math.abs(wordCount - 13) * 5);
+    const totalScore = lexicalScore + lengthScore;
+    
+    let reason = `Panjang kalimat: ${wordCount} kata.`;
+    if (foundKeywords.length > 0) {
+      reason += ` Mengandung kata kunci AI: [${foundKeywords.join(", ")}].`;
+    }
+
+    return {
+      score: Math.min(100, totalScore),
+      reason
+    };
+  };
+
   const renderHighlightedText = () => {
     if (!text) return <span className="text-slate-400 italic">Naskah kosong...</span>;
 
-    // Mode Utama: Menampilkan Sorotan Paragraf asinkron dari Machine Learning Backend
+    // Mode Utama: Menampilkan Sorotan Hibrida (Analisis Paragraf Makro + Sorotan Kalimat Mikro)
     if (result && result.chunks_highlights && result.chunks_highlights.length > 0) {
+      const activeKeywords = detectedAiWords.map(kw => kw.word);
+
       return result.chunks_highlights.map((chunk: ChunkHighlight, idx: number) => {
         const isAI = chunk.prediction === "AI";
-        const confFloat = parseFloat(chunk.confidence);
         
-        let highlightClass = "text-slate-700 border-l-4 border-transparent pl-3.5";
-        
-        if (enableHighlight && isAI) {
-          if (confFloat >= 85) {
-            highlightClass = "bg-rose-500/8 text-rose-950 font-medium border-l-4 border-rose-500 pl-3.5 py-1.5 my-2.5 shadow-xs transition-all duration-300";
-          } else if (confFloat >= 65) {
-            highlightClass = "bg-rose-500/5 text-rose-900 border-l-4 border-rose-400 pl-3.5 py-1.5 my-2.5 transition-all duration-300";
-          } else {
-            highlightClass = "bg-rose-500/2 text-slate-800 border-l-4 border-rose-300 pl-3.5 py-1.5 my-2.5 transition-all duration-300";
-          }
-        } else if (enableHighlight && !isAI) {
-          highlightClass = "text-slate-700 hover:bg-emerald-50/40 rounded pl-3.5 py-1.5 my-2.5 border-l-4 border-transparent transition-all";
+        // 1. Jika paragraf dinyatakan bersih (Manusia) atau highlight dimatikan, tampilkan teks polos
+        if (!isAI || !enableHighlight) {
+          return (
+            <p 
+              key={idx} 
+              className="text-slate-700 mb-3.5 leading-relaxed text-sm pl-3.5 border-l-4 border-transparent hover:bg-emerald-50/40 rounded transition-all"
+            >
+              {chunk.text}
+            </p>
+          );
         }
+
+        // 2. Jika paragraf terindikasi AI, pecah menjadi kalimat-kalimat untuk deteksi mikro (XAI!)
+        const sentences = chunk.text.split(/(?<=[.!?])\s+/);
 
         return (
           <p 
             key={idx} 
-            className={`transition-all duration-300 leading-relaxed text-sm ${highlightClass}`}
-            title={enableHighlight ? `Paragraf #${idx + 1} | Terdeteksi: ${chunk.prediction} (${chunk.confidence} yakin)` : undefined}
+            className="mb-3.5 leading-relaxed text-sm pl-3.5 border-l-4 border-rose-400 bg-rose-500/2 py-1.5 rounded-r-xl transition-all duration-300"
+            title={`Paragraf #${idx + 1} | Terindikasi AI (${chunk.confidence} yakin)`}
           >
-            {chunk.text}
+            {sentences.map((sentence, sIdx) => {
+              const trimmedSent = sentence.trim();
+              if (!trimmedSent) return null;
+
+              // Hitung skor kecurigaan lokal tingkat kalimat menggunakan fungsi getSentenceSuspicion
+              const { score, reason } = getSentenceSuspicion(trimmedSent, activeKeywords);
+              
+              let sentenceClass = "text-slate-700";
+              if (score >= 85) {
+                sentenceClass = "bg-rose-500/25 text-rose-950 font-bold border-b border-rose-400/80 cursor-help";
+              } else if (score >= 65) {
+                sentenceClass = "bg-rose-500/15 text-rose-900 border-b border-rose-300/60 cursor-help";
+              } else if (score >= 45) {
+                sentenceClass = "bg-rose-500/7 text-slate-850 border-b border-rose-200/30 cursor-help";
+              }
+
+              return (
+                <span
+                  key={sIdx}
+                  className={`transition-all duration-300 mr-1 rounded px-0.5 ${sentenceClass}`}
+                  title={score >= 45 ? `Kecurigaan Kalimat: ${score.toFixed(0)}% (${reason})` : undefined}
+                >
+                  {sentence}{" "}
+                </span>
+              );
+            })}
           </p>
         );
       });
     }
 
-    // Skenario Cadangan sebelum pemindaian dilakukan (Teks Polos)
+    // Skenario Cadangan sebelum pemindaian dilakukan (Teks Polos Biasa)
     return <p className="leading-relaxed text-sm text-slate-400 whitespace-pre-wrap select-text">{text}</p>;
   };
 
@@ -520,7 +587,18 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
 
                 {/* TAB 2: STILOMETRI (MENAMPILKAN SELURUH 35 DIMENSI FITUR STILOMETRI!) */}
                 {resultTab === "stylometry" && (
-                  <div className="space-y-4 animate-fade-in text-left max-h-87.5 overflow-y-auto pr-1">
+                  <div className="space-y-4.5 animate-fade-in text-left max-h-87.5 overflow-y-auto pr-1">
+                    <RadarChart 
+                      avgSentLen={currentAvgSentLen}
+                      sentLenVar={currentSentLenVar}
+                      lexDiv={currentLexDiv}
+                      punctDens={currentPunctDens}
+                      nounDens={getStyleNumber(result.stylometry.noun_dens)}
+                      verbDens={getStyleNumber(result.stylometry.verb_dens)}
+                      adjDens={getStyleNumber(result.stylometry.adj_dens)}
+                      conjDens={getStyleNumber(result.stylometry.conj_dens)}
+                      prediction={result.prediction as "AI" | "Human"}
+                    />
                     <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase pb-1 border-b border-slate-50">
                       <span>Daftar 35 Fitur Stilometri</span>
                       <span>Nilai Statistik Terkomputasi</span>
@@ -643,9 +721,44 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
                           <span className="text-slate-400 block">Adjektiva (Sifat)</span>
                           <span className="font-bold text-slate-700">{result.stylometry.adj_dens}</span>
                         </div>
+                        <div>
+                          <span className="text-slate-400 block">Pronoun (Ganti)</span>
+                          <span className="font-bold text-slate-700">{result.stylometry.pronoun_dens}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Konjungsi</span>
+                          <span className="font-bold text-slate-700">{result.stylometry.conj_dens}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Preposisi</span>
+                          <span className="font-bold text-slate-700">{result.stylometry.prep_dens}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Adverba</span>
+                          <span className="font-bold text-slate-700">{result.stylometry.adv_dens}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Numeralia (Angka)</span>
+                          <span className="font-bold text-slate-700">{result.stylometry.num_dens}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Asing (FW)</span>
+                          <span className="font-bold text-slate-700">{result.stylometry.foreign_dens}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Kata Seru (INT)</span>
+                          <span className="font-bold text-slate-700">{result.stylometry.interj_dens}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Kata Sandang (DET)</span>
+                          <span className="font-bold text-slate-700">{result.stylometry.det_dens}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Partikel (RP)</span>
+                          <span className="font-bold text-slate-700">{result.stylometry.part_dens}</span>
+                        </div>
                       </div>
                     </div>
-
                   </div>
                 )}
 

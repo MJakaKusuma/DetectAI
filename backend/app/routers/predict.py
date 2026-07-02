@@ -80,54 +80,53 @@ async def predict(
             cleaned = clean_text(paragraph)
             words_count = len(cleaned.split())
 
-            # Melewati paragraf yang terlalu pendek (misal: judul bab pendek atau nama penulis)
-            if words_count < 3:
-                prob = [0.5, 0.5]  # Probabilitas netral [Human, AI]
-            else:
-                # Transformasi leksikal TF-IDF (Sparse Matrix)
-                tfidf_feat = ml_registry.tfidf.transform([cleaned])
-                tfidf_shapes.append(tfidf_feat.shape)
-                
-                # Ekstraksi stilometri 35 dimensi (Mengekstrak dari naskah asli mentah 'paragraph')
-                style_feat_list = extract_stylometry(paragraph)
-                style_feat_sparse = csr_matrix([style_feat_list])
-                stylo_shapes.append(style_feat_sparse.shape)
+        # JIKA TEKS ADALAH JUDUL / TAJUK SUB-BAB (SANGAT PENDEK - DI BAWAH 15 KATA)
+        if words_count < 15:
+            # Lewati evaluasi model. Beri status "Neutral" (Bebas Highlight di Next.js)
+            # JANGAN tambahkan ke total_ai_prob agar tidak menyeret turun rata-rata dokumen!
+            chunks_result.append({
+                "chunk_index": idx,
+                "text": paragraph,
+                "prediction": "Neutral",
+                "confidence": "N/A",
+                "probability_ai": 0.5
+            })
+        else:
+            # HANYA EVALUASI PARAGRAF RELEVAN (YANG MEMILIKI PANJANG >= 15 KATA)
+            tfidf_feat = ml_registry.tfidf.transform([cleaned])
+            tfidf_shapes.append(tfidf_feat.shape)
+            
+            style_feat_list = extract_stylometry(paragraph)
+            style_feat_sparse = csr_matrix([style_feat_list])
+            stylo_shapes.append(style_feat_sparse.shape)
 
-                # Menggabungkan fitur hibrida secara sparse (hstack)
-                combined = hstack([tfidf_feat, style_feat_sparse]).tocsr()
+            combined = hstack([tfidf_feat, style_feat_sparse]).tocsr()
 
-                # Penskalaan fitur hibrida menggunakan MaxAbsScaler
-                if ml_registry.scaler is not None:
-                    combined = ml_registry.scaler.transform(combined)
+            if ml_registry.scaler is not None:
+                combined = ml_registry.scaler.transform(combined)
 
-                # Validasi kesesuaian jumlah dimensi fitur
-                expected_features = ml_registry.model.n_features_in_
-                if combined.shape[1] != expected_features:
-                    raise HTTPException(
-                        status_code=500, 
-                        detail=f"Feature mismatch pada paragraf ke-{idx+1}: Model membutuhkan {expected_features} fitur, tetapi input menghasilkan {combined.shape[1]}."
-                    )
+            expected_features = ml_registry.model.n_features_in_
+            if combined.shape[1] != expected_features:
+                raise HTTPException(
+                    status_code=500, 
+                    detail=f"Feature mismatch pada paragraf ke-{idx+1}: Model membutuhkan {expected_features} fitur, tetapi input menghasilkan {combined.shape[1]}."
+                )
 
-                # Prediksi probabilitas dari model
-                prob = ml_registry.model.predict_proba(combined)[0]
+            prob = ml_registry.model.predict_proba(combined)[0]
 
-            # Akumulasi nilai probabilitas AI untuk agregasi dokumen
+            # Akumulasi nilai HANYA untuk paragraf isi yang valid (panjang)
             total_ai_prob += prob[1]
             valid_chunks_count += 1
 
-            # Tentukan hasil klasifikasi parsial untuk paragraf ini
             chunk_label = "AI" if prob[1] > 0.5 else "Human"
             chunk_conf = float(prob[1] if prob[1] > 0.5 else prob[0])
-            
-            # --- PERBAIKAN 1: KALIBRASI PROBABILITAS PARGPARAF (GAMMA = 0.6) ---
             chunk_conf_scaled = 0.5 + 0.5 * np.power((chunk_conf - 0.5) / 0.5, 0.6)
 
-            # --- SINKRONISASI KUNCI NEXT.JS ---
             chunks_result.append({
-                "chunk_index": idx,           # Diubah dari paragraph_index agar bebas error Next.js
+                "chunk_index": idx,
                 "text": paragraph,
                 "prediction": chunk_label,
-                "confidence": f"{chunk_conf_scaled * 100:.2f}%", # Menggunakan keyakinan terkalibrasi
+                "confidence": f"{chunk_conf_scaled * 100:.2f}%",
                 "probability_ai": float(prob[1])
             })
 
@@ -186,7 +185,7 @@ async def predict(
             "confidence": f"{global_confidence_scaled * 100:.2f}%",
             "prediction_id": new_prediction.id,
             "stylometry": {
-                # Kategori A: Panjang & Ritme Kalimat
+                # Kategori A: Panjang & Ritme Kalimat (6 Fitur)
                 "avg_sent_len": f"{global_style_list[0]:.1f} kata/kalimat",
                 "sent_len_var": f"{global_style_list[1]:.1f} standar deviasi",
                 "avg_word_len": f"{global_style_list[2]:.1f} karakter/kata",
@@ -194,14 +193,14 @@ async def predict(
                 "total_words": f"{int(global_style_list[4])} kata",
                 "char_count": f"{int(global_style_list[5])} karakter",
                 
-                # Kategori B: Kekayaan Kosakata
+                # Kategori B: Kekayaan Kosakata (5 Fitur)
                 "lex_div": f"{global_style_list[6] * 100:.1f}% kosakata unik",
                 "guiraud_index": f"{global_style_list[7]:.2f}",
                 "herdan_index": f"{global_style_list[8]:.2f}",
                 "hapax_ratio": f"{global_style_list[9] * 100:.1f}%",
                 "yules_i": f"{global_style_list[10]:.2f}",
                 
-                # Kategori C: Tanda Baca & Karakter
+                # Kategori C: Tanda Baca & Karakter (12 Fitur)
                 "punct_dens": f"{global_style_list[11] * 100:.1f}% kerapatan tanda baca",
                 "comma_ratio": f"{global_style_list[12] * 100:.1f}%",
                 "period_ratio": f"{global_style_list[13] * 100:.1f}%",
@@ -213,11 +212,21 @@ async def predict(
                 "quote_ratio": f"{global_style_list[19] * 100:.1f}%",
                 "bracket_ratio": f"{global_style_list[20] * 100:.1f}%",
                 "uppercase_ratio": f"{global_style_list[21] * 100:.2f}%",
+                "digit_ratio": f"{global_style_list[22] * 100:.2f}%",
                 
-                # Kategori D: Tata Bahasa (POS Density)
+                # Kategori D: Tata Bahasa / POS Density (12 Fitur)
                 "noun_dens": f"{global_style_list[23] * 100:.1f}%",
                 "verb_dens": f"{global_style_list[24] * 100:.1f}%",
-                "adj_dens": f"{global_style_list[25] * 100:.1f}%"
+                "adj_dens": f"{global_style_list[25] * 100:.1f}%",
+                "pronoun_dens": f"{global_style_list[26] * 100:.1f}%",
+                "conj_dens": f"{global_style_list[27] * 100:.1f}%",
+                "prep_dens": f"{global_style_list[28] * 100:.1f}%",
+                "adv_dens": f"{global_style_list[29] * 100:.1f}%",
+                "num_dens": f"{global_style_list[30] * 100:.1f}%",
+                "foreign_dens": f"{global_style_list[31] * 100:.1f}%",
+                "interj_dens": f"{global_style_list[32] * 100:.1f}%",
+                "det_dens": f"{global_style_list[33] * 100:.1f}%",
+                "part_dens": f"{global_style_list[34] * 100:.1f}%"
             },
             "ai_keywords": ml_registry.ai_keywords,
             "chunks_highlights": chunks_result  # <-- SINKRON: Menggunakan key 'chunks_highlights' untuk Next.js Anda!

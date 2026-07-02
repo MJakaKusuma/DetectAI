@@ -272,7 +272,7 @@ async def retrain_model(
             accuracy=acc_hybrid, 
             f1_score=f1_h,
             dataset_id=dataset_id,
-            model_path=archive_model_path,
+            model_path=active_model_path,
             is_active=True
         )
         db.add(new_version_record)
