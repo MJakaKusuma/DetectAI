@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { DatasetItem, UploadResponse } from "../types";
 import DatasetMerger from "../../components/datasetmerger";
 import { useToast } from "../../components/toast";
 import { apiRequest } from "../../lib/api";
-import { FileText, Shuffle, Edit3, Trash2 } from "react-feather";
+import { FileText, Shuffle, Edit3, Trash2, Loader, ChevronDown, Database, Calendar } from "react-feather";
 
 interface TrainingTabProps {
   datasets: DatasetItem[];
@@ -18,12 +18,33 @@ export default function TrainingTab({ datasets, fetchAdminData, setDatasets, han
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [training, setTraining] = useState(false);
+  const [trainingProgress, setTrainingProgress] = useState(0);
   const [selectedDatasetId, setSelectedDatasetId] = useState<string>("");
   const [uploadMethod, setUploadMethod] = useState<"single" | "merge">("single");
+
+  // State untuk mengontrol status buka/tutup Custom Dropdown
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const [renamingId, setRenamingId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const ROWS_PER_PAGE = 10;
   const [datasetPage, setDatasetPage] = useState(1);
   const { showToast } = useToast();
+
+  // Menutup dropdown otomatis jika pengguna mengeklik di luar area dropdown
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectedDataset = datasets.find((d) => d.id.toString() === selectedDatasetId);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -63,14 +84,33 @@ export default function TrainingTab({ datasets, fetchAdminData, setDatasets, han
     }
 
     setTraining(true);
+    setTrainingProgress(0);
     const token = localStorage.getItem("token");
+
+    const progressInterval = setInterval(() => {
+      setTrainingProgress((prev) => {
+        if (prev >= 95) {
+          return prev;
+        }
+        const increment = prev < 60 ? Math.random() * 8 + 2 : Math.random() * 2 + 0.5;
+        return Math.min(Math.round(prev + increment), 95);
+      });
+    }, 400);
 
     try {
       await apiRequest(`/admin/retrain/${selectedDatasetId}`, "POST", null, token);
+      
+      clearInterval(progressInterval);
+      setTrainingProgress(100);
+      
+      await new Promise((resolve) => setTimeout(resolve, 600));
+
       showToast("retraining selesai!", "success");
       setSelectedDatasetId("");
       handleTabChange("models"); 
     } catch (err: unknown) {
+      clearInterval(progressInterval);
+      setTrainingProgress(0);
       showToast((err as Error).message || "Gagal melatih ulang model.", "error");
     } finally {
       setTraining(false);
@@ -81,13 +121,16 @@ export default function TrainingTab({ datasets, fetchAdminData, setDatasets, han
     const newName = window.prompt("Masukkan nama file baru berekstensi .csv:", currentFilename);
     if (!newName || newName.trim() === "" || newName === currentFilename) return;
 
+    setRenamingId(datasetId);
     const token = localStorage.getItem("token");
     try {
       await apiRequest(`/admin/datasets/${datasetId}`, "PUT", { new_filename: newName }, token);
       showToast(`Nama berkas berhasil diubah menjadi ${newName}`, "success");
-      fetchAdminData();
+      await fetchAdminData();
     } catch (err: unknown) {
       showToast((err as Error).message || "Gagal mengubah nama berkas.", "error");
+    } finally {
+      setRenamingId(null);
     }
   };
 
@@ -95,13 +138,16 @@ export default function TrainingTab({ datasets, fetchAdminData, setDatasets, han
     const confirmDelete = window.confirm(`Apakah Anda yakin ingin menghapus dataset "${filename}" secara permanen dari server?`);
     if (!confirmDelete) return;
 
+    setDeletingId(datasetId);
     const token = localStorage.getItem("token");
     try {
       await apiRequest(`/admin/datasets/${datasetId}`, "DELETE", null, token);
       showToast("Dataset berhasil dihapus secara permanen!", "success");
-      fetchAdminData();
+      await fetchAdminData();
     } catch (err: unknown) {
       showToast((err as Error).message || "Gagal menghapus dataset.", "error");
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -166,15 +212,100 @@ export default function TrainingTab({ datasets, fetchAdminData, setDatasets, han
 
         <div className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm space-y-4">
           <h3 className="text-base font-bold text-slate-800">Latih Model</h3>
-          <select value={selectedDatasetId} onChange={(e) => setSelectedDatasetId(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm text-slate-700 bg-white outline-none">
-            <option value="">-- Pilih Dataset Pengujian --</option>
-            {datasets.map((d) => (
-              <option key={d.id} value={d.id}>{d.filename} ({d.row_count} data)</option>
-            ))}
-          </select>
-          <button onClick={handleRetrain} disabled={training || !selectedDatasetId} className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold uppercase disabled:bg-slate-100 disabled:text-slate-400 transition-all">
-            {training ? "Melatih Model Baru..." : "Mulai Retraining"}
-          </button>
+          
+          {!training ? (
+            <div className="space-y-4">
+              {/* Custom Dropdown Container */}
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  className="w-full flex items-center justify-between px-4 py-3 border border-slate-200 rounded-xl text-slate-700 bg-white hover:border-slate-300 transition-all text-left focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                >
+                  {selectedDataset ? (
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Database className="w-4 h-4 text-indigo-600 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="font-bold text-slate-800 text-xs truncate">{selectedDataset.filename}</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">
+                          {selectedDataset.row_count} data • {selectedDataset.upload_date}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="text-slate-400 text-xs font-medium">Pilih Dataset Pengujian...</span>
+                  )}
+                  <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200 ${isDropdownOpen ? "rotate-180" : ""}`} />
+                </button>
+
+                {/* Dropdown Options List */}
+                {isDropdownOpen && (
+                  <div className="absolute z-20 mt-1.5 w-full bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-y-auto py-1.5 divide-y divide-slate-50 animate-fade-in">
+                    {datasets.length === 0 ? (
+                      <div className="px-4 py-3 text-xs text-slate-400 text-center">Belum ada dataset tersedia</div>
+                    ) : (
+                      datasets.map((d) => (
+                        <button
+                          key={d.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedDatasetId(d.id.toString());
+                            setIsDropdownOpen(false);
+                          }}
+                          className={`w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center justify-between transition-colors ${
+                            selectedDatasetId === d.id.toString() ? "bg-slate-50/80" : ""
+                          }`}
+                        >
+                          <div className="min-w-0 pr-2">
+                            <p className={`text-xs truncate ${selectedDatasetId === d.id.toString() ? "font-bold text-indigo-600" : "font-semibold text-slate-800"}`}>
+                              {d.filename}
+                            </p>
+                            <p className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">
+                              <Calendar className="w-3 h-3" /> {d.upload_date}
+                            </p>
+                          </div>
+                          <span className={`shrink-0 text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
+                            selectedDatasetId === d.id.toString() 
+                              ? "bg-indigo-600 text-white border-indigo-600" 
+                              : "bg-indigo-50 text-indigo-600 border-indigo-100"
+                          }`}>
+                            {d.row_count} baris
+                          </span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <button 
+                onClick={handleRetrain} 
+                disabled={!selectedDatasetId} 
+                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold uppercase disabled:bg-slate-100 disabled:text-slate-400 transition-all"
+              >
+                Mulai Retraining
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3 pt-2 animate-fade-in">
+              <div className="flex justify-between items-center text-xs font-bold text-slate-700">
+                <span className="flex items-center gap-1.5">
+                  <Loader className="w-3.5 h-3.5 animate-spin text-indigo-600" />
+                  Proses Retraining...
+                </span>
+                <span className="text-indigo-600 font-mono">{trainingProgress}%</span>
+              </div>
+              <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-indigo-600 rounded-full transition-all duration-300 ease-out" 
+                  style={{ width: `${trainingProgress}%` }}
+                />
+              </div>
+              <p className="text-[10px] text-slate-400 leading-normal">
+                Harap jangan menutup halaman atau mematikan koneksi internet selama proses training berjalan.
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -195,29 +326,55 @@ export default function TrainingTab({ datasets, fetchAdminData, setDatasets, han
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {currentRows.map((d) => (
-                    <tr key={d.id} className="hover:bg-slate-50/50">
-                      <td className="py-4 text-xs font-medium text-slate-400">{d.upload_date}</td>
-                      <td className="py-4 font-bold text-slate-700 max-w-xs truncate" title={d.filename}>
-                        {d.filename}
-                      </td>
-                      <td className="py-4 text-right font-semibold text-slate-800">{d.row_count} baris</td>
-                      <td className="py-4 text-right space-x-2 whitespace-nowrap">
-                        <button 
-                          onClick={() => handleRenameDataset(d.id, d.filename)}
-                          className="px-2.5 py-1 text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 rounded-md transition-all"
-                        >
-                          <Edit3 className="inline-block w-3 h-3 mr-1" /> Rename
-                        </button>
-                        <button 
-                          onClick={() => handleDeleteDataset(d.id, d.filename)}
-                          className="px-2.5 py-1 text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-100 hover:bg-rose-100 rounded-md transition-all"
-                        >
-                          <Trash2 className="inline-block w-3 h-3 mr-1" /> Hapus
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {currentRows.map((d) => {
+                    const isRenaming = renamingId === d.id;
+                    const isDeleting = deletingId === d.id;
+                    const isRowProcessing = isRenaming || isDeleting;
+
+                    return (
+                      <tr key={d.id} className="hover:bg-slate-50/50">
+                        <td className="py-4 text-xs font-medium text-slate-400">{d.upload_date}</td>
+                        <td className="py-4 font-bold text-slate-700 max-w-xs truncate" title={d.filename}>
+                          {d.filename}
+                        </td>
+                        <td className="py-4 text-right font-semibold text-slate-800">{d.row_count} baris</td>
+                        <td className="py-4 text-right space-x-2 whitespace-nowrap">
+                          <button 
+                            onClick={() => handleRenameDataset(d.id, d.filename)}
+                            disabled={isRowProcessing}
+                            className="px-2.5 py-1 text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 rounded-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {isRenaming ? (
+                              <>
+                                <Loader className="inline-block w-3 h-3 mr-1 animate-spin" />
+                                Memproses...
+                              </>
+                            ) : (
+                              <>
+                                <Edit3 className="inline-block w-3 h-3 mr-1" /> Rename
+                              </>
+                            )}
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteDataset(d.id, d.filename)}
+                            disabled={isRowProcessing}
+                            className="px-2.5 py-1 text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-100 hover:bg-rose-100 rounded-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {isDeleting ? (
+                              <>
+                                <Loader className="inline-block w-3 h-3 mr-1 animate-spin" />
+                                Menghapus...
+                              </>
+                            ) : (
+                              <>
+                                <Trash2 className="inline-block w-3 h-3 mr-1" /> Hapus
+                              </>
+                            )}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
