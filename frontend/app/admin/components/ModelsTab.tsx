@@ -4,10 +4,10 @@ import { useState } from "react";
 import { ModelVersionItem } from "../types";
 import { useToast } from "../../components/toast";
 import { apiRequest } from "../../lib/api";
-import { Loader } from "react-feather"; // Import Loader dari react-feather
+import { Loader } from "react-feather";
 
 interface ModelsTabProps {
-  models: ModelVersionItem[];
+  models: ModelVersionItem[] | null; // Mengizinkan null untuk status loading awal
   fetchAdminData: () => Promise<void>;
 }
 
@@ -16,8 +16,19 @@ export default function ModelsTab({ models, fetchAdminData }: ModelsTabProps) {
   const [modelPage, setModelPage] = useState(1);
   const { showToast } = useToast();
 
-  // State untuk melacak model mana yang sedang diaktifkan
   const [activatingId, setActivatingId] = useState<number | null>(null);
+
+  // Status Loading awal jika data model belum diterima dari server (null)
+  if (!models) {
+    return (
+      <div className="w-full min-h-100 flex items-center justify-center bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm animate-fade-in">
+        <div className="text-center space-y-4">
+          <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-xs text-slate-500 font-medium">Memverifikasi otorisasi & memuat data versi model...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleActivateModel = async (modelId: number, versionName: string) => {
     setActivatingId(modelId);
@@ -42,56 +53,60 @@ export default function ModelsTab({ models, fetchAdminData }: ModelsTabProps) {
     <div className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm animate-fade-in flex flex-col justify-between min-h-100">
       <div>
         <h3 className="text-base font-bold text-slate-800 mb-6">Manajemen Versi Model (Rollback System)</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-600 min-w-162.5">
-            <thead>
-              <tr className="border-b border-slate-100 text-slate-400 text-xs font-bold uppercase tracking-wider pb-2">
-                <th className="pb-3">Tanggal Latih</th>
-                <th className="pb-3">Nama Versi</th>
-                <th className="pb-3">Akurasi</th>
-                <th className="pb-3">F1-Score</th>
-                <th className="pb-3 text-right">Aksi Produksi</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {currentRows.map((item) => {
-                const isActivating = activatingId === item.id;
-                const isAnyLoading = activatingId !== null;
+        {models.length === 0 ? (
+          <div className="text-center py-12 text-slate-400 text-xs">Belum ada versi model yang terdaftar.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm text-slate-600 min-w-162.5">
+              <thead>
+                <tr className="border-b border-slate-100 text-slate-400 text-xs font-bold uppercase tracking-wider pb-2">
+                  <th className="pb-3">Tanggal Latih</th>
+                  <th className="pb-3">Nama Versi</th>
+                  <th className="pb-3">Akurasi</th>
+                  <th className="pb-3">F1-Score</th>
+                  <th className="pb-3 text-right">Aksi Produksi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {currentRows.map((item) => {
+                  const isActivating = activatingId === item.id;
+                  const isAnyLoading = activatingId !== null;
 
-                return (
-                  <tr key={item.id} className="hover:bg-slate-50/50">
-                    <td className="py-4 text-xs font-medium text-slate-400">{item.trained_at}</td>
-                    <td className="py-4 font-bold text-slate-700">{item.version_name}</td>
-                    <td className="py-4 font-semibold text-indigo-600">{item.accuracy}</td>
-                    <td className="py-4 font-semibold text-slate-800">{item.f1_score}</td>
-                    <td className="py-4 text-right">
-                      {item.is_active ? (
-                        <span className="inline-block px-2.5 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px] font-bold uppercase">
-                          Active
-                        </span>
-                      ) : (
-                        <button 
-                          onClick={() => handleActivateModel(item.id, item.version_name)} 
-                          disabled={isAnyLoading}
-                          className="inline-flex items-center justify-center min-w-20 px-3 py-1.5 bg-slate-950 hover:bg-slate-800 text-white rounded text-[10px] font-bold uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {isActivating ? (
-                            <>
-                              <Loader className="w-3 h-3 mr-1 animate-spin" />
-                              Proses...
-                            </>
-                          ) : (
-                            "Aktifkan"
-                          )}
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                  return (
+                    <tr key={item.id} className="hover:bg-slate-50/50">
+                      <td className="py-4 text-xs font-medium text-slate-400">{item.trained_at}</td>
+                      <td className="py-4 font-bold text-slate-700">{item.version_name}</td>
+                      <td className="py-4 font-semibold text-indigo-600">{item.accuracy}</td>
+                      <td className="py-4 font-semibold text-slate-800">{item.f1_score}</td>
+                      <td className="py-4 text-right">
+                        {item.is_active ? (
+                          <span className="inline-block px-2.5 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px] font-bold uppercase">
+                            Active
+                          </span>
+                        ) : (
+                          <button 
+                            onClick={() => handleActivateModel(item.id, item.version_name)} 
+                            disabled={isAnyLoading}
+                            className="inline-flex items-center justify-center min-w-20 px-3 py-1.5 bg-slate-950 hover:bg-slate-800 text-white rounded text-[10px] font-bold uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {isActivating ? (
+                              <>
+                                <Loader className="w-3 h-3 mr-1 animate-spin" />
+                                Proses...
+                              </>
+                            ) : (
+                              "Aktifkan"
+                            )}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {models.length > ROWS_PER_PAGE && (
