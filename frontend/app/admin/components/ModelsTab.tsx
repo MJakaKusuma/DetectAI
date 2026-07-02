@@ -7,7 +7,7 @@ import { apiRequest } from "../../lib/api";
 import { Loader } from "react-feather";
 
 interface ModelsTabProps {
-  models: ModelVersionItem[] | null; // Cukup ganti ini agar bisa bernilai null saat loading
+  models: ModelVersionItem[] | null; // Menerima null untuk kondisi awal loading
   fetchAdminData: () => Promise<void>;
 }
 
@@ -18,8 +18,8 @@ export default function ModelsTab({ models, fetchAdminData }: ModelsTabProps) {
 
   const [activatingId, setActivatingId] = useState<number | null>(null);
 
-  // Jika models bernilai null, maka tampilkan loading screen
-  if (!models) {
+  // Jika models bernilai null (masih loading di awal), tampilkan loading screen
+  if (models === null) {
     return (
       <div className="w-full min-h-100 flex items-center justify-center bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm animate-fade-in">
         <div className="text-center space-y-4">
