@@ -7,7 +7,7 @@ import { apiRequest } from "../../lib/api";
 import { Loader } from "react-feather";
 
 interface ModelsTabProps {
-  models: ModelVersionItem[] | null; // Mengizinkan null untuk status loading awal
+  models: ModelVersionItem[] | null; // Diubah agar menerima null saat loading awal
   fetchAdminData: () => Promise<void>;
 }
 
@@ -18,7 +18,7 @@ export default function ModelsTab({ models, fetchAdminData }: ModelsTabProps) {
 
   const [activatingId, setActivatingId] = useState<number | null>(null);
 
-  // Status Loading awal jika data model belum diterima dari server (null)
+  // loading screen utama dengan gaya yang sama seperti DashboardTab
   if (!models) {
     return (
       <div className="w-full min-h-100 flex items-center justify-center bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm animate-fade-in">
