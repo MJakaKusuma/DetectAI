@@ -814,7 +814,7 @@ export default function AnalyzerTab({ username }: AnalyzerTabProps) {
                               >
                                 <div className="flex justify-between items-center w-full">
                                   <span className={`text-[11px] font-black uppercase tracking-wider truncate max-w-20 sm:max-w-25 ${textClass}`}>
-                                    {item.word}
+                                    {item.word.replace(/ /g, "•")}
                                   </span>
                                   <span className={`w-1.5 h-1.5 rounded-full ${dotClass} animate-pulse`} />
                                 </div>
