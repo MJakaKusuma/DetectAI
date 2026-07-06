@@ -84,23 +84,20 @@ async def predict(
                     "probability_ai": 0.5
                 })
             else:
-                # Proses paragraf valid (panjang >= 15 kata)
+                # Ekstraksi TF-IDF leksikal (500 dimensi)
                 tfidf_feat = ml_registry.tfidf.transform([cleaned])
                 
-                # BUG FIXED: Ekstraksi fitur gaya bahasa stilometri menggunakan teks asli mentah (paragraph)
-                # agar kapitalisasi huruf, tanda baca, dan ortografi terbaca akurat
+                # Ekstraksi fitur gaya bahasa stilometri mentah (35 dimensi) dari teks asli
                 style_feat_raw = np.array(extract_stylometry(paragraph)).reshape(1, -1)
-                
-                # Normalisasi fitur gaya bahasa menggunakan MaxAbsScaler terlatih
-                if ml_registry.scaler is not None:
-                    style_feat = ml_registry.scaler.transform(style_feat_raw)
-                else:
-                    style_feat = style_feat_raw
-                    
-                style_feat_sparse = csr_matrix(style_feat)
+                style_feat_sparse = csr_matrix(style_feat_raw)
 
-                # Gabungkan fitur leksikal dan gaya bahasa (500 + 35 = 535 Dimensi)
+                # BUG FIXED: Gabungkan fitur leksikal dan stilometri terlebih dahulu menjadi 535 dimensi
                 combined = hstack([tfidf_feat, style_feat_sparse]).tocsr()
+
+                # BUG FIXED: Jalankan penskalaan MaxAbsScaler pada matriks gabungan hibrida (535 dimensi)
+                # agar selaras dengan model latih pada train.py dan admin.py Anda
+                if ml_registry.scaler is not None:
+                    combined = ml_registry.scaler.transform(combined)
 
                 expected_features = ml_registry.model.n_features_in_
                 if combined.shape[1] != expected_features:
@@ -137,7 +134,7 @@ async def predict(
         # Kalibrasi eksponensial non-linier global (gamma = 0.4)
         global_confidence_scaled = 0.5 + 0.5 * np.power((global_confidence_raw - 0.5) / 0.5, 0.4)
 
-        # BUG FIXED: Ekstraksi seluruh 35 fitur gaya bahasa global menggunakan naskah asli mentah
+        # Ekstraksi seluruh 35 fitur gaya bahasa global menggunakan naskah asli mentah untuk payload respon
         global_style_list = extract_stylometry(text_request.text)
 
     except Exception as e:
