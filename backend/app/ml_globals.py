@@ -1,6 +1,7 @@
 import joblib
 import os
 import traceback
+from huggingface_hub import hf_hub_download
 from app.database import SessionLocal
 from app.models import ModelVersion
 
@@ -15,18 +16,16 @@ ml_registry = MLRegistry()
 
 def update_global_ai_keywords():
     try:
-        if ml_registry.tfidf is None or ml_registry.model is None:
-            return
-        feature_names = ml_registry.tfidf.get_feature_names_out()
-        coefs = ml_registry.model.coef_[0]
-        tfidf_coefs = coefs[:len(feature_names)]
-        word_coef_pairs = list(zip(feature_names, tfidf_coefs))
-        sorted_pairs = sorted(word_coef_pairs, key=lambda x: x[1], reverse=True)
-        ml_registry.ai_keywords = [
-            {"word": pair[0], "weight": float(pair[1])} 
-            for pair in sorted_pairs[:15]
-        ]
-        print("[XAI] Keywords updated successfully.")
+        if ml_registry.tfidf is not None and ml_registry.model is not None:
+            # Mengambil fitur-fitur leksikal teratas yang memengaruhi klasifikasi AI
+            feature_names = ml_registry.tfidf.get_feature_names_out()
+            coefficients = ml_registry.model.coef_[0][:500]  # Hanya fitur leksikal
+            top_indices = coefficients.argsort()[-10:][::-1]
+            ml_registry.ai_keywords = [
+                {"word": feature_names[idx], "weight": float(coefficients[idx])}
+                for idx in top_indices
+            ]
+            print("[XAI] Kata kunci AI berhasil diperbarui di memori.")
     except Exception as e:
         print(f"⚠️ XAI Error: {repr(e)}")
 
@@ -45,24 +44,66 @@ def load_active_models():
             t_path = m_path.replace("logistic_model", "tfidf_vectorizer")
             s_path = m_path.replace("logistic_model", "scaler_style")
             
-            print(f"[System] Mencoba memuat file fisik di:\n - Model: {m_path}\n - TF-IDF: {t_path}\n - Scaler: {s_path}")
+            print(f"[System] Memverifikasi keberadaan file fisik di disk lokal kontainer...")
             
+            # LOGIKA AUTO-DOWNLOAD: Jika file tidak ditemukan secara lokal, tarik langsung dari Hugging Face Hub
+            if not os.path.exists(m_path):
+                print(f"[System] File {clean_path} tidak ditemukan secara lokal.")
+                print(f"[System] Memulai proses sinkronisasi dari repositori shouwiku/detectai-models...")
+                try:
+                    os.makedirs(os.path.join(base_dir, "models"), exist_ok=True)
+                    
+                    # 1. Unduh file model biner
+                    hf_hub_download(
+                        repo_id="shouwiku/detectai-models",
+                        filename=f"models/{clean_path}",
+                        local_dir=base_dir,
+                        repo_type="model"
+                    )
+                    
+                    # 2. Unduh file TF-IDF Vectorizer biner
+                    tfidf_filename = clean_path.replace("logistic_model", "tfidf_vectorizer")
+                    hf_hub_download(
+                        repo_id="shouwiku/detectai-models",
+                        filename=f"models/{tfidf_filename}",
+                        local_dir=base_dir,
+                        repo_type="model"
+                    )
+                    
+                    # 3. Unduh file MaxAbsScaler biner
+                    scaler_filename = clean_path.replace("logistic_model", "scaler_style")
+                    hf_hub_download(
+                        repo_id="shouwiku/detectai-models",
+                        filename=f"models/{scaler_filename}",
+                        local_dir=base_dir,
+                        repo_type="model"
+                    )
+                    print("✅ [MLOps SUCCESS] Sinkronisasi trilogi model biner berhasil diselesaikan.")
+                except Exception as hf_err:
+                    print(f"❌ [HF-HUB DOWNLOAD ERROR] Gagal mengunduh file biner: {str(hf_err)}")
+                    # Jalur fallback menggunakan model dasar default jika unduhan gagal
+                    m_path = os.path.join(base_dir, "models", "logistic_model.pkl")
+                    t_path = os.path.join(base_dir, "models", "tfidf_vectorizer.pkl")
+                    s_path = os.path.join(base_dir, "models", "scaler_style.pkl")
+                    print(f"[System] Fallback diaktifkan. Mencoba memuat file default.")
+            
+            # Memuat objek biner dari lokal disk ke memori aktif server
             if os.path.exists(m_path):
                 ml_registry.model = joblib.load(m_path)
                 ml_registry.tfidf = joblib.load(t_path)
                 
                 if os.path.exists(s_path):
                     ml_registry.scaler = joblib.load(s_path)
-                    print("✅ SUKSES: MaxAbsScaler berhasil dimuat.")
+                    print("✅ SUKSES: MaxAbsScaler berhasil dimuat ke memori aktif.")
                 else:
                     ml_registry.scaler = None
                     print("⚠️ WARNING: Scaler tidak ditemukan. Inferensi berjalan tanpa penskalaan.")
                     
                 ml_registry.model_loading_error = None
                 update_global_ai_keywords()
-                print(f"✅ SUKSES: Model {active_info.version_name} aktif di memori.")
+                print(f"✅ SUKSES: Model {active_info.version_name} aktif di memori runtime.")
             else:
-                ml_registry.model_loading_error = f"File fisik tidak ditemukan di server. Jalur: {m_path}"
+                ml_registry.model_loading_error = f"File fisik tidak ditemukan di server lokal maupun cloud. Jalur: {m_path}"
                 print(f"❌ ERROR: {ml_registry.model_loading_error}")
         else:
             ml_registry.model_loading_error = "Tidak ada model yang ditandai 'is_active' di MySQL."

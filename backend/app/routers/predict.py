@@ -33,8 +33,6 @@ async def get_user_history(
     current_user: User = Depends(get_current_user), 
     db: Session = Depends(get_db)
 ):
-    print(f"\n[GET /history] Menarik riwayat untuk user: {current_user.username}")
-    
     predictions = db.query(Prediction).filter(
         Prediction.user_id == current_user.id
     ).order_by(Prediction.created_at.desc()).all()
@@ -62,7 +60,7 @@ async def predict(
             detail=f"Model belum dimuat. Silakan periksa server. Detail Error: {ml_registry.model_loading_error}"
         )
 
-    # 1. Pemotongan Otomatis: Memotong teks masukan per paragraf (Paragraph Chunking)
+    # 1. Segmentasi Paragraf (Paragraph Windowing)
     raw_paragraphs = [p.strip() for p in text_request.text.split("\n") if p.strip()]
     if not raw_paragraphs:
         raise HTTPException(status_code=400, detail="Teks masukan kosong atau tidak valid.")
@@ -71,21 +69,13 @@ async def predict(
     total_ai_prob = 0.0
     valid_chunks_count = 0
 
-    # Digunakan untuk kepentingan debug log di akhir eksekusi
-    tfidf_shapes = []
-    stylo_shapes = []
-
     try:
-        # INDENTASI LEVEL 1: Blok try utama (Lekukan 8 spasi)
         for idx, paragraph in enumerate(raw_paragraphs):
-            # INDENTASI LEVEL 2: Blok di dalam wilayah 'for' (Lekukan 12 spasi)
             cleaned = clean_text(paragraph)
             words_count = len(cleaned.split())
 
-            # INDENTASI LEVEL 3: Blok pengujian di dalam wilayah 'for' (Lekukan 16 spasi)
             if words_count < 15:
-                # Lewati evaluasi model. Beri status "Neutral" (Bebas Highlight di Next.js)
-                # JANGAN tambahkan ke total_ai_prob agar tidak menyeret turun rata-rata dokumen!
+                # Lewati model jika paragraf terlalu pendek (di bawah 15 kata) untuk menghindari derau
                 chunks_result.append({
                     "chunk_index": idx,
                     "text": paragraph,
@@ -94,18 +84,23 @@ async def predict(
                     "probability_ai": 0.5
                 })
             else:
-                # HANYA EVALUASI PARAGRAF RELEVAN (YANG MEMILIKI PANJANG >= 15 KATA)
+                # Proses paragraf valid (panjang >= 15 kata)
                 tfidf_feat = ml_registry.tfidf.transform([cleaned])
-                tfidf_shapes.append(tfidf_feat.shape)
                 
-                style_feat_list = extract_stylometry(paragraph)
-                style_feat_sparse = csr_matrix([style_feat_list])
-                stylo_shapes.append(style_feat_sparse.shape)
-
-                combined = hstack([tfidf_feat, style_feat_sparse]).tocsr()
-
+                # BUG FIXED: Ekstraksi fitur gaya bahasa stilometri menggunakan teks asli mentah (paragraph)
+                # agar kapitalisasi huruf, tanda baca, dan ortografi terbaca akurat
+                style_feat_raw = np.array(extract_stylometry(paragraph)).reshape(1, -1)
+                
+                # Normalisasi fitur gaya bahasa menggunakan MaxAbsScaler terlatih
                 if ml_registry.scaler is not None:
-                    combined = ml_registry.scaler.transform(combined)
+                    style_feat = ml_registry.scaler.transform(style_feat_raw)
+                else:
+                    style_feat = style_feat_raw
+                    
+                style_feat_sparse = csr_matrix(style_feat)
+
+                # Gabungkan fitur leksikal dan gaya bahasa (500 + 35 = 535 Dimensi)
+                combined = hstack([tfidf_feat, style_feat_sparse]).tocsr()
 
                 expected_features = ml_registry.model.n_features_in_
                 if combined.shape[1] != expected_features:
@@ -116,13 +111,15 @@ async def predict(
 
                 prob = ml_registry.model.predict_proba(combined)[0]
 
-                # Akumulasi nilai HANYA untuk paragraf isi yang valid (panjang)
+                # Akumulasi nilai hanya dari paragraf isi yang valid
                 total_ai_prob += prob[1]
                 valid_chunks_count += 1
 
                 chunk_label = "AI" if prob[1] > 0.5 else "Human"
                 chunk_conf = float(prob[1] if prob[1] > 0.5 else prob[0])
-                chunk_conf_scaled = 0.5 + 0.5 * np.power((chunk_conf - 0.5) / 0.5, 0.6)
+                
+                # Kalibrasi eksponensial non-linier tingkat paragraf (gamma = 0.4)
+                chunk_conf_scaled = 0.5 + 0.5 * np.power((chunk_conf - 0.5) / 0.5, 0.4)
 
                 chunks_result.append({
                     "chunk_index": idx,
@@ -132,16 +129,15 @@ async def predict(
                     "probability_ai": float(prob[1])
                 })
 
-        # --- SELESAI PERULANGAN FOR ---
-        # Baris di bawah ini ditarik mundur sejajar dengan 'for' (Lekukan 8 spasi)
+        # Hitung rata-rata probabilitas global dokumen
         avg_ai_prob = total_ai_prob / valid_chunks_count if valid_chunks_count > 0 else 0.5
         global_prediction = "AI" if avg_ai_prob > 0.5 else "Human"
         global_confidence_raw = avg_ai_prob if avg_ai_prob > 0.5 else (1.0 - avg_ai_prob)
         
-        # --- PERBAIKAN 2: KALIBRASI PROBABILITAS GLOBAL (GAMMA = 0.6) ---
-        global_confidence_scaled = 0.5 + 0.5 * np.power((global_confidence_raw - 0.5) / 0.5, 0.6)
+        # Kalibrasi eksponensial non-linier global (gamma = 0.4)
+        global_confidence_scaled = 0.5 + 0.5 * np.power((global_confidence_raw - 0.5) / 0.5, 0.4)
 
-        # --- PERBAIKAN 3: MEMETAKAN SELURUH 35 DIMENSI FITUR STILOMETRI DARI TEKS ASLI ---
+        # BUG FIXED: Ekstraksi seluruh 35 fitur gaya bahasa global menggunakan naskah asli mentah
         global_style_list = extract_stylometry(text_request.text)
 
     except Exception as e:
@@ -168,7 +164,7 @@ async def predict(
         active_model = db.query(ModelVersion).filter(ModelVersion.is_active == True).first()
         model_v_id = active_model.id if active_model else None
 
-        # Menyimpan Log Hasil Prediksi Global Ke Database SQL (Gunakan nilai float terkalibrasi)
+        # Menyimpan log hasil prediksi global ke database SQL (Gunakan nilai float terkalibrasi)
         new_prediction = Prediction(
             input_text=text_request.text,
             prediction_result=global_prediction,
@@ -181,7 +177,6 @@ async def predict(
         db.commit()
         db.refresh(new_prediction)
         
-        # --- PERBAIKAN 4: INTEGRASI PAYLOAD STILOMETRI LENGKAP KE NEXT.JS ---
         return {
             "status": "success",
             "prediction": global_prediction,
@@ -232,15 +227,8 @@ async def predict(
                 "part_dens": f"{global_style_list[34] * 100:.1f}%"
             },
             "ai_keywords": ml_registry.ai_keywords,
-            "chunks_highlights": chunks_result  # <-- SINKRON: Menggunakan key 'chunks_highlights' untuk Next.js Anda!
+            "chunks_highlights": chunks_result
         }
     except Exception as e:
         print(f"Error Database Log: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
-    finally:
-        print(f"Selesai memproses dokumen. Jumlah paragraf: {len(raw_paragraphs)}")
-        if tfidf_shapes:
-            print("Contoh TFIDF shape (Sparse):", tfidf_shapes[0])
-        if stylo_shapes:
-            print("Contoh STYLO shape (Sparse):", stylo_shapes[0])

@@ -177,16 +177,17 @@ async def retrain_model(
         style_features_list = []
         print(f"[Retrain] Mengekstrak 35 fitur gaya bahasa dari {len(df_combined)} baris teks...")
         
-        for t in df_combined['clean_text']:
+        # BUG FIXED: Ekstraksi stilometri saat retraining wajib menggunakan naskah asli mentah (kolom 'text'), bukan 'clean_text'
+        for t in df_combined['text']:
             feat = extract_stylometry(t)
             style_features_list.append(feat)
 
         style_features_np = np.array(style_features_list)
         style_features_sparse = csr_matrix(style_features_np) # Konversi ke CSR Sparse Matrix
 
-        # 2. Fitur Leksikal TF-IDF (Sesuai Konfigurasi train.py: Character-level N-gram 3-5, max_features=500)
+        # 2. Fitur Leksikal TF-IDF (Sesuai Konfigurasi: Character-level N-gram 3-5, max_features=500)
         new_tfidf_vectorizer = TfidfVectorizer(max_features=500, analyzer='char', ngram_range=(3, 5), sublinear_tf=True)
-        X_tfidf_only = new_tfidf_vectorizer.fit_transform(df_combined['clean_text']) # Menghasilkan sparse matrix secara native
+        X_tfidf_only = new_tfidf_vectorizer.fit_transform(df_combined['clean_text'])
 
         # Gabungkan raw leksikal dan stilometri hibrida menggunakan hstack sparse
         X_hybrid_raw = hstack([X_tfidf_only, style_features_sparse]).tocsr()

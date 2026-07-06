@@ -247,6 +247,49 @@ print("="*50 + "\n")
 
 print("Classification Report Final:\n", classification_report(y_test, y_pred_h))
 
+print("\n[XAI] Mengekstrak koefisien model untuk analisis Feature Importance...")
+
+try:
+    # 1. Mengambil nama-nama fitur karakter N-Gram dari TF-IDF Vectorizer
+    feature_names = tfidf_final.get_feature_names_out()
+
+    # 2. Mengambil nilai koefisien (bobot) dari model Regresi Logistik
+    # Kita hanya ambil 500 pertama (fitur TF-IDF) sesuai dengan best_vocab
+    tfidf_coefficients = model_final.coef_[0][:best_vocab]
+
+    # 3. Satukan nama fitur dengan nilai koefisiennya ke dalam list tuple
+    feature_importance = list(zip(feature_names, tfidf_coefficients))
+
+    # 4. Urutkan dari nilai koefisien tertinggi ke terendah (Descending)
+    # Koefisien POSITIF (+) kuat mengarah ke kelas AI (Kelas 1)
+    ai_indicative = sorted(feature_importance, key=lambda x: x[1], reverse=True)
+
+    # 5. Urutkan dari nilai koefisien terendah ke tertinggi (Ascending)
+    # Koefisien NEGATIF (-) kuat mengarah ke kelas Manusia (Kelas 0)
+    human_indicative = sorted(feature_importance, key=lambda x: x[1], reverse=False)
+
+    # --- CETAK TABEL 10 FITUR PENANDA AI ---
+    print("\n" + "="*70)
+    print("     10 FITUR LEKSIKAL (KARAKTER N-GRAM) PALING INDIKATIF KE AI")
+    print("="*70)
+    print(f"{'Peringkat':<10} | {'Karakter N-Gram (3-5 Gram)':<25} | {'Bobot Koefisien'}")
+    print("-"*70)
+    for rank, (char_ngram, coef) in enumerate(ai_indicative[:10], 1):
+        print(f"{rank:<10} | '{char_ngram}':<{25} | {coef:+.4f}")
+    print("="*70)
+
+    # --- CETAK TABEL 10 FITUR PENANDA MANUSIA ---
+    print("\n" + "="*70)
+    print("     10 FITUR LEKSIKAL (KARAKTER N-GRAM) PALING INDIKATIF MANUSIA")
+    print("="*70)
+    print(f"{'Peringkat':<10} | {'Karakter N-Gram (3-5 Gram)':<25} | {'Bobot Koefisien'}")
+    print("-"*70)
+    for rank, (char_ngram, coef) in enumerate(human_indicative[:10], 1):
+        print(f"{rank:<10} | '{char_ngram}':<{25} | {coef:+.4f}")
+    print("="*70 + "\n")
+
+except Exception as e:
+    print(f"[XAI ERROR] Gagal mengekstrak Feature Importance: {e}")
 
 # 8. MENYIMPAN ASET DIGITAL MODEL SECARA SINKRON (DENGAN MAXABSSCALER)
 print("[8] Menyimpan Aset Digital Model Terlatih...")
