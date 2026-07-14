@@ -39,7 +39,7 @@ export default function RootLayout({
                 Aplikasi riset klasifikasi teks untuk membedakan tulisan manusia dan kecerdasan buatan berbasis metode hibrida TF-IDF & Stilometri.
               </p>
             </div>
-            <div>
+            {/* <div>
               <h4 className="text-sm font-bold text-white uppercase tracking-wider mb-4">Teknologi</h4>
               <ul className="space-y-2 text-xs">
                 <li>Gemma 4 31B IT (AI Generator)</li>
@@ -54,7 +54,7 @@ export default function RootLayout({
                 <li>Fitur: TF-IDF & Stilometri</li>
                 <li>Model: Regresi Logistik</li>
               </ul>
-            </div>
+            </div> */}
           </div>
           <div className="max-w-7xl mx-auto pt-8 border-t border-slate-800 text-center text-xs">
             &copy; {new Date().getFullYear()} DetectAI — Proyek Riset Klasifikasi AI.

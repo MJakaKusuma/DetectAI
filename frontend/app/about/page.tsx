@@ -3,172 +3,189 @@ import Link from "next/link";
 
 export default function AboutPage() {
   return (
-    <div className="max-w-5xl mx-auto px-6 py-12 space-y-12 animate-fade-in">
+    <div className="max-w-5xl mx-auto px-6 py-12 space-y-16 animate-fade-in">
       
-      {/* Header */}
+      {/* Header Utama */}
       <div className="text-center max-w-3xl mx-auto space-y-4">
-        <span className="text-xs font-bold text-indigo-600 uppercase tracking-widest bg-indigo-50 px-3 py-1 rounded-full">Landasan Teori</span>
-        <h1 className="text-3xl sm:text-4xl font-black text-slate-800">Metodologi Klasifikasi Hibrida</h1>
-        <p className="text-sm text-slate-500 leading-relaxed">
-          Bagaimana cara komputer membedakan buah pikiran manusia dengan hasil algoritma probabilitas matematika? Pelajari dasar ilmiah di balik sistem deteksi DetectAI.
+        <span className="text-xs font-bold text-indigo-600 uppercase tracking-widest bg-indigo-50 px-3 py-1 rounded-full">Landasan Teori & Metodologi</span>
+        <h1 className="text-3xl sm:text-5xl font-black text-slate-800 tracking-tight">Metodologi Klasifikasi Hibrida</h1>
+        <p className="text-sm sm:text-base text-slate-500 leading-relaxed">
+          Eksplorasi ilmiah di balik sistem **DETECTAI**. Bagaimana integrasi fitur leksikal permukaan dan analisis gaya bahasa bawah sadar dihitung secara matematis untuk membongkar sidik jari linguistik mesin.
         </p>
       </div>
 
-      {/* Bagian Perbandingan Pendekatan */}
-      <section className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-6">
+      {/* Bagian Perbandingan Pendekatan Hibrida */}
+      <section className="space-y-6">
+        <div className="text-center md:text-left">
+          <h2 className="text-2xl font-black text-slate-800">Dua Pilar Ekstraksi Fitur</h2>
+          <p className="text-xs text-slate-400">Penggabungan metode statistik representasi kata dan analisis gaya penulisan kuantitatif:</p>
+        </div>
         
-        {/* Card 1: TF-IDF */}
-        <div className="p-8 bg-white border border-slate-200/60 rounded-2xl shadow-sm space-y-4">
-          <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 text-xl font-bold">
-            W
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {/* Card 1: TF-IDF */}
+          <div className="p-8 bg-white border border-slate-200/60 rounded-2xl shadow-sm space-y-4 hover:shadow-md transition-all">
+            <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 text-xl font-black">W</div>
+            <h3 className="text-xl font-bold text-slate-800">1. Analisis Leksikal (500-D Karakter N-Gram)</h3>
+            <p className="text-xs font-bold text-indigo-500 uppercase tracking-wider">Mendeteksi &quot;Apa&quot; yang Ditulis (Preferensi Kata kunci)</p>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Menggunakan metode pembobotan statistik <strong>Term Frequency-Inverse Document Frequency (TF-IDF)</strong> pada tingkat <strong>Karakter N-Gram (rentang panjang 3 s.d 5 karakter)</strong> untuk memetakan morfologi teks.
+            </p>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Model bahasa besar (LLMs) memiliki keterbatasan probabilistik yang menyebabkan mereka sering kali menggunakan kata sambung dan kata kerja aktif tertentu secara berulang (*over-optimization*) demi mempertahankan stabilitas tata bahasa formal.
+            </p>
           </div>
-          <h3 className="text-xl font-bold text-slate-800">1. Analisis Leksikal (TF-IDF)</h3>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Mendeteksi &quot;Apa&quot; yang Ditulis</p>
-          <p className="text-xs text-slate-500 leading-relaxed">
-            <strong>Term Frequency-Inverse Document Frequency (TF-IDF)</strong> adalah metode statistik untuk mengukur seberapa penting sebuah kata dalam suatu dokumen terhadap korpus data. 
-          </p>
-          <p className="text-xs text-slate-500 leading-relaxed">
-            Teks generatif AI cenderung memiliki bobot leksikal yang kaku karena model bahasa besar (LLM) bekerja dengan memilih kata dengan probabilitas tertinggi yang sering kali menghasilkan pola kemunculan kata kunci tertentu yang terlalu teratur.
-          </p>
-        </div>
 
-        {/* Card 2: Stilometri */}
-        <div className="p-8 bg-white border border-slate-200/60 rounded-2xl shadow-sm space-y-4">
-          <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 text-xl font-bold">
-            S
+          {/* Card 2: Stilometri */}
+          <div className="p-8 bg-white border border-slate-200/60 rounded-2xl shadow-sm space-y-4 hover:shadow-md transition-all">
+            <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 text-xl font-black">S</div>
+            <h3 className="text-xl font-bold text-slate-800">2. Analisis Stilometrik (35-D Gaya Penulisan)</h3>
+            <p className="text-xs font-bold text-indigo-500 uppercase tracking-wider">Mendeteksi &quot;Bagaimana&quot; Teks Ditulis (Kebiasaan Bawah Sadar)</p>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Mengevaluasi aspek kepenulisan intrinsik yang tidak dipengaruhi topik bahasan. Analisis ini mengisolasi variabilitas penulisan organik manusia dengan kelancaran kaku (*too perfect*) hasil generasi probabilitas mesin.
+            </p>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Meskipun AI modern dapat memanipulasi kosakata leksikal untuk menghindari deteksi kata kunci, AI sangat sulit meniru dinamika struktural, variasi ritme tanda baca alami, dan proporsi kelas kata sintaksis yang tidak konsisten khas manusia.
+            </p>
           </div>
-          <h3 className="text-xl font-bold text-slate-800">2. Analisis Stilometrik (Stilometri)</h3>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Mendeteksi &quot;Bagaimana&quot; Teks Ditulis</p>
-          <p className="text-xs text-slate-500 leading-relaxed">
-            <strong>Stilometri</strong> adalah studi ilmiah yang menganalisis gaya penulisan kebahasaan seseorang secara statistik. Metode ini berasumsi bahwa setiap penulis (baik manusia maupun mesin) memiliki &quot;sidik jari linguistik&quot; yang unik.
-          </p>
-          <p className="text-xs text-slate-500 leading-relaxed">
-            Meskipun AI dapat diperintahkan untuk meniru kosakata tertentu, AI sangat sulit meniru dinamika struktural, variasi panjang kalimat, dan ritme tanda baca alami yang sering kali tidak konsisten pada tulisan manusia asli.
-          </p>
         </div>
-
       </section>
 
       {/* ============================================================================== */}
-      {/* RINCIAN 7 METRIK STILOMETRI YANG DIEKSTRAK (VERSI KOMPREHENSIF) */}
+      {/* RINCIAN 35 FITUR STILOMETRI (4 KELOMPOK UTAMA) */}
       {/* ============================================================================== */}
-      <section className="bg-white border border-slate-200/60 rounded-2xl p-6 sm:p-8 shadow-sm space-y-8 animate-fade-in">
+      <section className="bg-white border border-slate-200/60 rounded-2xl p-6 sm:p-8 shadow-sm space-y-8">
         <div className="space-y-1">
-          <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest bg-indigo-50 px-2.5 py-1 rounded-md">Feature Details</span>
-          <h3 className="text-xl font-black text-slate-800 pt-1">7 Metrik Stilometri yang Diekstrak</h3>
-          <p className="text-xs text-slate-400">Tujuh parameter statistik dan kelas kata utama yang diproses oleh model Regresi Logistik kami untuk mengidentifikasi sidik jari linguistik:</p>
+          <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest bg-indigo-50 px-2.5 py-1 rounded-md">Feature Architecture</span>
+          <h3 className="text-2xl font-black text-slate-800 pt-2">Kompilasi 35 Fitur Stilometrik</h3>
+          <p className="text-xs text-slate-400">Seluruh dimensi parameter gaya bahasa kuantitatif yang diekstrak dan dibagi ke dalam empat kategori analisis sintaksis-ortografis:</p>
         </div>
 
-        {/* Grid Responsif (cols-1 di HP, cols-2 di Tablet, cols-3 di Laptop) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           
-          {/* ========================== KELOMPOK 1: METRIK STRUKTURAL ========================== */}
-
-          {/* Metrik 1 */}
-          <div className="p-5 bg-slate-50 border border-slate-100 rounded-2xl space-y-2.5 hover:bg-white hover:shadow-md hover:shadow-slate-100 transition-all">
+          {/* Kelompok A */}
+          <div className="p-6 bg-slate-50 border border-slate-100 rounded-2xl space-y-3 hover:bg-white hover:shadow-md transition-all">
             <div className="flex justify-between items-center">
-              <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">Struktural</span>
+              <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">Kelompok A (6 Fitur)</span>
               <span className="text-xs font-black text-slate-300">01</span>
             </div>
-            <h4 className="text-sm font-extrabold text-slate-700">A. Rata-rata Panjang Kalimat</h4>
+            <h4 className="text-base font-extrabold text-slate-700">A. Ritme & Panjang Kalimat</h4>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Rasio jumlah kata dibagi jumlah kalimat. AI cenderung memproduksi kalimat dengan panjang yang sangat seragam dan monoton (konstan di kisaran 12-16 kata), sedangkan manusia menulis dengan dinamika panjang kalimat yang bervariasi secara alami.
+              Mengevaluasi dimensi fisik dan dinamika kepenulisan dokumen. Meliputi: rata-rata panjang kalimat (<em>avg_sent_len</em>), rata-rata panjang kata (<em>avg_word_len</em>), variabilitas panjang kalimat/<em>Burstiness</em> (<em>sent_len_var</em>), akumulasi kalimat (<em>total_sentences</em>), total kata, dan jumlah karakter.
             </p>
           </div>
 
-          {/* Metrik 2 */}
-          <div className="p-5 bg-slate-50 border border-slate-100 rounded-2xl space-y-2.5 hover:bg-white hover:shadow-md hover:shadow-slate-100 transition-all">
+          {/* Kelompok B */}
+          <div className="p-6 bg-slate-50 border border-slate-100 rounded-2xl space-y-3 hover:bg-white hover:shadow-md transition-all">
             <div className="flex justify-between items-center">
-              <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">Struktural</span>
+              <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">Kelompok B (5 Fitur)</span>
               <span className="text-xs font-black text-slate-300">02</span>
             </div>
-            <h4 className="text-sm font-extrabold text-slate-700">B. Keberagaman Kosakata (Lexical Diversity)</h4>
+            <h4 className="text-base font-extrabold text-slate-700">B. Kekayaan & Diversitas Kosakata</h4>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Menggunakan rumus Type-Token Ratio (TTR) untuk menghitung kosa kata unik dibanding total seluruh kata. Manusia menggunakan kosa kata yang lebih beraneka ragam dan tidak terduga, sedangkan AI cenderung menggunakan kata-kata &quot;aman&quot; yang berulang demi menjaga tata bahasa baku.
+              Mengukur keragaman diksi kosakata penulis secara logaritmik dan statistik. Meliputi: <em>Type-Token Ratio</em> (lex_div), Indeks Guiraud untuk meredam panjang dokumen, Indeks Herdan, rasio kata langka yang hanya muncul satu kali (<em>Hapax Legomena Ratio</em>), dan <em>Yule`s I Measure</em>.
             </p>
           </div>
 
-          {/* Metrik 3 */}
-          <div className="p-5 bg-slate-50 border border-slate-100 rounded-2xl space-y-2.5 hover:bg-white hover:shadow-md hover:shadow-slate-100 transition-all">
+          {/* Kelompok C */}
+          <div className="p-6 bg-slate-50 border border-slate-100 rounded-2xl space-y-3 hover:bg-white hover:shadow-md transition-all">
             <div className="flex justify-between items-center">
-              <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">Struktural</span>
+              <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">Kelompok C (12 Fitur)</span>
               <span className="text-xs font-black text-slate-300">03</span>
             </div>
-            <h4 className="text-sm font-extrabold text-slate-700">C. Kerapatan Tanda Baca</h4>
+            <h4 className="text-base font-extrabold text-slate-700">C. Densitas Tanda Baca & Ortografis</h4>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Rasio jumlah tanda baca utama terhadap total kata. AI memiliki kepatuhan statistik yang sangat kaku dan stabil dalam menempatkan tanda koma dan titik sesuai pedoman formal, menghasilkan tingkat kerapatan yang berbeda dengan tulisan manusia yang lebih fleksibel.
+              Mengukur kepatuhan tanda baca secara global dan rasio sebarannya. Meliputi: kerapatan tanda baca global (<em>punct_dens</em>), rasio tanda koma (<em>comma_ratio</em>), tanda titik (<em>period_ratio</em>), tanda tanya, tanda seru, titik dua, titik koma, tanda hubung, tanda petik, tanda kurung, rasio huruf kapital, dan angka.
             </p>
           </div>
 
-          {/* Metrik 4 */}
-          <div className="p-5 bg-slate-50 border border-slate-100 rounded-2xl space-y-2.5 hover:bg-white hover:shadow-md hover:shadow-slate-100 transition-all">
+          {/* Kelompok D */}
+          <div className="p-6 bg-slate-50 border border-slate-100 rounded-2xl space-y-3 hover:bg-white hover:shadow-md transition-all">
             <div className="flex justify-between items-center">
-              <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">Struktural</span>
+              <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">Kelompok D (12 Fitur)</span>
               <span className="text-xs font-black text-slate-300">04</span>
             </div>
-            <h4 className="text-sm font-extrabold text-slate-700">D. Variabilitas Kalimat (Burstiness)</h4>
+            <h4 className="text-base font-extrabold text-slate-700">D. Kerapatan Kelas Kata (Sintaksis POS)</h4>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Standar deviasi dari panjang kalimat di seluruh dokumen. Tulisan manusia memiliki tingkat burstiness yang tinggi (kalimat sangat panjang yang dikombinasikan dengan kalimat pendek), sedangkan AI memiliki variabilitas rendah karena panjang kalimatnya sangat seragam.
-            </p>
-          </div>
-
-          {/* ========================== KELOMPOK 2: METRIK SINTAKSIS / POS ========================== */}
-
-          {/* Metrik 5 */}
-          <div className="p-5 bg-slate-50 border border-slate-100 rounded-2xl space-y-2.5 hover:bg-white hover:shadow-md hover:shadow-slate-100 transition-all">
-            <div className="flex justify-between items-center">
-              <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">Sintaksis (POS)</span>
-              <span className="text-xs font-black text-slate-300">05</span>
-            </div>
-            <h4 className="text-sm font-extrabold text-slate-700">E. Kerapatan Kata Benda (Nomina)</h4>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Rasio kata benda (`NOUN` & `PROPN`) terhadap total seluruh kata, diekstrak menggunakan POS Tagger nlp-id. Tulisan AI cenderung memiliki kepadatan nomina yang sangat tinggi karena fokus menyajikan informasi secara padat dan ringkas dalam satu kalimat.
-            </p>
-          </div>
-
-          {/* Metrik 6 */}
-          <div className="p-5 bg-slate-50 border border-slate-100 rounded-2xl space-y-2.5 hover:bg-white hover:shadow-md hover:shadow-slate-100 transition-all">
-            <div className="flex justify-between items-center">
-              <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">Sintaksis (POS)</span>
-              <span className="text-xs font-black text-slate-300">06</span>
-            </div>
-            <h4 className="text-sm font-extrabold text-slate-700">F. Kerapatan Kata Kerja (Verba)</h4>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Rasio kata kerja (`VERB`) terhadap total seluruh kata. Tulisan manusia secara alami memiliki kerapatan verba yang lebih tinggi karena manusia cenderung menceritakan proses tindakan (action-driven) dan hubungan aktif secara lebih dinamis dibanding mesin.
-            </p>
-          </div>
-
-          {/* Metrik 7 */}
-          <div className="p-5 bg-slate-50 border border-slate-100 rounded-2xl space-y-2.5 hover:bg-white hover:shadow-md hover:shadow-slate-100 transition-all">
-            <div className="flex justify-between items-center">
-              <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">Sintaksis (POS)</span>
-              <span className="text-xs font-black text-slate-300">07</span>
-            </div>
-            <h4 className="text-sm font-extrabold text-slate-700">G. Kerapatan Kata Sifat (Adjektiva)</h4>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Rasio kata sifat (`ADJ` / `JJ`) terhadap total kata. AI seringkali menggunakan kata sifat formal secara berlebihan (seperti kata komprehensif, signifikan, optimal) guna memberikan penekanan teks yang terdengar sangat profesional dan berwibawa secara akademis.
+              Menggunakan <em>Part-of-Speech Tagging</em> Bahasa Indonesia untuk menghitung rasio sebaran kelas kata tata bahasa terhadap total seluruh kata dalam dokumen. Meliputi kerapatan: kata benda (<em>noun_dens</em>), verba/kata kerja, adjektiva/kata sifat, pronomina, konjungsi, preposisi, adverbia, numeralia, kata asing, interjeksi, determiner, dan partikel penegas.
             </p>
           </div>
 
         </div>
       </section>
 
-      {/* Model Klasifikasi */}
-      <section className="bg-slate-900 rounded-2xl p-8 text-white shadow-xl border border-slate-800 space-y-6">
-        <div>
-          <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Algoritma Klasifikasi</span>
-          <h3 className="text-xl font-bold mt-2">Model Regresi Logistik (Logistic Regression)</h3>
+      {/* ============================================================================== */}
+      {/* FORMULASI MATEMATIKA PIPELINE DETEKSI */}
+      {/* ============================================================================== */}
+      <section className="space-y-6">
+        <div className="text-center md:text-left">
+          <h2 className="text-2xl font-black text-slate-800">Formulasi Matematis Sistem</h2>
+          <p className="text-xs text-slate-400">Dasar pemodelan kalkulasi kuantitatif di sisi backend server:</p>
         </div>
-        <p className="text-xs text-slate-300 leading-relaxed">
-          Semua fitur numerik hasil ekstraksi TF-IDF (1.000 dimensi) dan metrik Stilometri (3 dimensi) digabungkan menjadi sebuah vektor masukan tunggal sepanjang **1.003 dimensi**. Vektor ini kemudian diproses menggunakan algoritma Regresi Logistik.
-        </p>
-        <p className="text-xs text-slate-300 leading-relaxed">
-          Regresi Logistik dipilih karena merupakan model klasifikasi linear yang efisien untuk data berdimensi tinggi, serta bersifat *interpretable*—artinya nilai bobot koefisien keputusannya dapat dianalisis secara transparan untuk memahami arah keputusan klasifikasi sistem.
-        </p>
-        <div className="pt-4 border-t border-slate-800 flex justify-between items-center text-xs">
-          <span className="text-indigo-400 font-bold">Rata-rata Akurasi Pengujian: 97.66%</span>
-          <Link href="/dashboard" className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-bold transition-all text-xs uppercase tracking-wider">
-            Coba Analyzer
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          
+          {/* Rumus 1: MaxAbsScaler */}
+          <div className="p-6 bg-white border border-slate-200/60 rounded-2xl shadow-sm space-y-3">
+            <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded">Feature Scaling</span>
+            <h4 className="text-sm font-bold text-slate-800">Penskalaan Fitur Gaya Bahasa (MaxAbsScaler)</h4>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Untuk menyelaraskan rentang dimensi nilai stilometri kontinu tanpa merusak sifat jarang (<em>sparsity</em>) dari matriks TF-IDF:
+            </p>
+            <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 text-center font-mono text-sm text-indigo-600 font-bold">
+              x_scaled = x / max(|X|)
+            </div>
+            <p className="text-[10px] text-slate-400">
+              *Metode ini menghindari pemusatan data (no centering) sehingga nilai nol asli pada matriks TF-IDF tetap terjaga secara mutlak.
+            </p>
+          </div>
+
+          {/* Rumus 2: Kalibrasi Probabilitas */}
+          <div className="p-6 bg-white border border-slate-200/60 rounded-2xl shadow-sm space-y-3">
+            <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded">Probability Sharpening</span>
+            <h4 className="text-sm font-bold text-slate-800">Kalibrasi Eksponensial Non-Linier (Gamma = 0.4)</h4>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Meningkatkan contrast nilai keyakinan global di sekitar area ambigu demi ketegasan interpretasi laporan hasil:
+            </p>
+            <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 font-mono text-[10px] sm:text-xs text-indigo-600 font-bold space-y-1">
+              <p>Jika P_raw &gt;= 0.5:</p>
+              <p className="pl-4">P_calibrated = 0.5 + 0.5 * ((P_raw - 0.5) / 0.5)^0.4</p>
+              <p>Jika P_raw &lt; 0.5:</p>
+              <p className="pl-4">P_calibrated = 0.5 - 0.5 * ((0.5 - P_raw) / 0.5)^0.4</p>
+            </div>
+            <p className="text-[10px] text-slate-400">
+              *Teks dengan keyakinan global di bawah 75.00% diklasifikasikan ke dalam zona pengaman Ragu-Ragu untuk menghindari salah tuduh.
+            </p>
+          </div>
+
+        </div>
+      </section>
+
+      {/* Model Klasifikasi & Performa Akhir */}
+      <section className="bg-slate-900 rounded-3xl p-8 text-white shadow-xl border border-slate-800 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+          <div>
+            <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest bg-slate-800 px-3 py-1 rounded-full">Core Classifier Engine</span>
+            <h3 className="text-2xl font-black mt-2 tracking-tight">Vektor Hibrida 535 Dimensi & Regresi Logistik L2</h3>
+          </div>
+          <div className="bg-indigo-600/10 border border-indigo-500/30 text-indigo-400 px-4 py-2 rounded-xl text-center">
+            <p className="text-[10px] font-bold uppercase tracking-wider">Akurasi Internal Model</p>
+            <p className="text-xl font-black">94.20%</p>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs text-slate-300 leading-relaxed pt-2">
+          <p>
+            Seluruh fitur numerik hasil ekstraksi TF-IDF tingkat Karakter N-Gram (500 dimensi) dan metrik Stilometri (35 dimensi) digabungkan secara sejajar menjadi satu vektor hibrida tunggal sepanjang <strong>535 dimensi</strong>. Vektor ini diumpankan secara langsung ke algoritma Regresi Logistik L2 dengan parameter invers regularisasi ketat (C=0.01) guna meminimalkan koefisien bobot yang terlalu ekstrem.
+          </p>
+          <p>
+            Model ini diimplementasikan menggunakan solver <em>lbfgs</em> kuasi-Newton di sisi backend FastAPI secara asinkron. Pendekatan ini menghasilkan waktu inferensi yang sangat cepat (rata-rata 0,3 detik per dokumen) tanpa mengorbankan ketangguhan. Pada uji buta eksternal (125 sampel), DETECTAI membuktikan tingkat generalisasi yang andal dengan akurasi akhir global mencapai <strong>95.20%</strong>.
+          </p>
+        </div>
+
+        <div className="pt-6 border-t border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs">
+          <span className="text-slate-400 font-bold">DETECTAI © 2026 ─ Universitas Bandar Lampung</span>
+          <Link href="/dashboard" className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-bold transition-all text-xs uppercase tracking-wider shadow-lg shadow-indigo-600/30">
+            Coba Pindai Teks
           </Link>
         </div>
       </section>

@@ -47,7 +47,7 @@ export default function Navbar() {
         
         {/* LOGO */}
         <Link href="/" className="flex items-center gap-2.5 shrink-0">
-          <div className="w-9 h-9 bg-gradient-to-tr from-indigo-600 to-blue-500 rounded-xl flex items-center justify-center text-white font-extrabold text-lg shadow-md">
+          <div className="w-9 h-9 bg-linear-to-tr from-indigo-600 to-blue-500 rounded-xl flex items-center justify-center text-white font-extrabold text-lg shadow-md">
             A
           </div>
           <span className="text-xl font-bold tracking-tight text-slate-800">
@@ -133,10 +133,10 @@ export default function Navbar() {
           <Link href="/" onClick={() => setIsOpen(false)} className="text-sm font-bold text-slate-700 hover:text-indigo-600 py-1">Home</Link>
           <Link href="/dashboard" onClick={() => setIsOpen(false)} className="text-sm font-bold text-slate-700 hover:text-indigo-600 py-1">Analyzer</Link>
           <Link href="/about" onClick={() => setIsOpen(false)} className="text-sm font-bold text-slate-700 hover:text-indigo-600 py-1">About</Link>
-          <Link href="/developer" onClick={() => setIsOpen(false)} className="text-sm font-bold text-slate-700 hover:text-indigo-600 py-1">🔌 API Doc</Link>
+          {/* <Link href="/developer" onClick={() => setIsOpen(false)} className="text-sm font-bold text-slate-700 hover:text-indigo-600 py-1">🔌 API Doc</Link> */}
           
           {isLoggedIn && role === "admin" && (
-            <Link href="/admin" onClick={() => setIsOpen(false)} className="text-sm font-bold text-indigo-600 py-1">🛠️ Admin Panel</Link>
+            <Link href="/admin" onClick={() => setIsOpen(false)} className="text-sm font-bold text-indigo-600 py-1">Admin Panel</Link>
           )}
 
           <div className="h-px bg-slate-100 w-full" />

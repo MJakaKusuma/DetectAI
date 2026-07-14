@@ -13,7 +13,7 @@ export default function LandingPage() {
           <div className="text-left space-y-8 animate-fade-in">
             {/* Badge */}
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-semibold tracking-wider uppercase">
-              <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+              {/* <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" /> */}
               Hybrid AI Classifier Platform
             </div>
 
@@ -31,7 +31,7 @@ export default function LandingPage() {
             {/* Statistik Ringkas di Hero untuk Meramaikan */}
             <div className="grid grid-cols-3 gap-4 border-y border-slate-100 py-4 max-w-md text-center sm:text-left">
               <div>
-                <h4 className="text-lg font-black text-indigo-600">99.53%</h4>
+                <h4 className="text-lg font-black text-indigo-600">94.20%</h4>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Akurasi Model</p>
               </div>
               <div>
@@ -39,7 +39,7 @@ export default function LandingPage() {
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Topik Domain</p>
               </div>
               <div>
-                <h4 className="text-lg font-black text-slate-800">1.003</h4>
+                <h4 className="text-lg font-black text-slate-800">535</h4>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Dimensi Fitur</p>
               </div>
             </div>
