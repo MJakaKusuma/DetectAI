@@ -60,7 +60,7 @@ export default function Navbar() {
           <Link href="/" className={`transition-colors ${pathname === "/" ? "text-indigo-600" : "hover:text-indigo-600"}`}>Home</Link>
           <Link href="/dashboard" className={`transition-colors ${pathname === "/dashboard" ? "text-indigo-600" : "hover:text-indigo-600"}`}>Analyzer</Link>
                     <Link href="/about" className={`transition-colors ${pathname === "/about" ? "text-indigo-600 font-bold" : "hover:text-indigo-600"}`}>About</Link>
-          <Link href="/developer" className={`transition-colors ${pathname === "/developer" ? "text-indigo-600 font-bold" : "hover:text-indigo-600"}`}>🔌 API Doc</Link>
+          {/* <Link href="/developer" className={`transition-colors ${pathname === "/developer" ? "text-indigo-600 font-bold" : "hover:text-indigo-600"}`}>🔌 API Doc</Link> */}
           
           {/* Menu Khusus Admin (Hanya muncul jika Role = admin) */}
           {isLoggedIn && role === "admin" && (
