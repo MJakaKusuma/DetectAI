@@ -1,41 +1,24 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { useToast } from "../components/toast";
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [username, setUsername] = useState<string | null>(null);
-  const [role, setRole] = useState<string | null>(null);
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  const username = typeof window !== "undefined" ? localStorage.getItem("username") : null;
+  const role = typeof window !== "undefined" ? localStorage.getItem("role") : null;
+  const isLoggedIn = Boolean(token && username);
   
   const { showToast } = useToast();
   const router = useRouter();
   const pathname = usePathname(); // Untuk mendeteksi halaman aktif
 
-  // Membaca status login secara aman dari localStorage setelah komponen mounted
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    const storedUsername = localStorage.getItem("username");
-    const storedRole = localStorage.getItem("role");
-
-    if (token && storedUsername) {
-      setIsLoggedIn(true);
-      setUsername(storedUsername);
-      setRole(storedRole);
-    } else {
-      setIsLoggedIn(false);
-      setUsername(null);
-      setRole(null);
-    }
-  }, [pathname]); // Memicu pengecekan ulang setiap kali rute halaman berpindah
-
   const handleLogout = () => {
-    localStorage.clear();
-    setIsLoggedIn(false);
-    setUsername(null);
-    setRole(null);
+    if (typeof window !== "undefined") {
+      localStorage.clear();
+    }
     setIsOpen(false);
     showToast("Anda telah keluar dari sistem.", "info");
     router.push("/");
